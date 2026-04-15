@@ -8,30 +8,31 @@
 
 .settings-scope-tabs {
   display: flex;
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 
 .settings-scope-tabs button {
   flex: 1;
-  padding: 8px;
+  padding: 10px 8px;
   background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
-  color: #999;
+  color: var(--text-secondary);
   font-size: 12px;
   cursor: pointer;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  transition: all var(--transition-fast);
 }
 
 .settings-scope-tabs button:hover {
-  color: #ccc;
+  color: var(--text-primary);
 }
 
 .settings-scope-tabs button.active {
-  color: #fff;
-  border-bottom-color: #007acc;
+  color: var(--text-bright);
+  border-bottom-color: var(--accent);
 }
 
 .settings-search {
@@ -41,22 +42,24 @@
 
 .settings-search input {
   width: 100%;
-  background: #3c3c3c;
-  border: 1px solid #555;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
   border-radius: 3px;
-  color: #ccc;
+  color: var(--text-primary);
   font-size: 13px;
   padding: 6px 10px;
   outline: none;
   box-sizing: border-box;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .settings-search input:focus {
-  border-color: #007acc;
+  border-color: var(--accent);
+  box-shadow: var(--focus-ring);
 }
 
 .settings-search input::placeholder {
-  color: #777;
+  color: var(--text-muted);
 }
 
 .settings-list {
@@ -67,7 +70,12 @@
 
 .settings-item {
   padding: 12px 0;
-  border-bottom: 1px solid #2a2a2a;
+  border-bottom: 1px solid var(--bg-tertiary);
+  transition: background var(--transition-fast);
+}
+
+.settings-item:hover {
+  background: rgba(255,255,255,0.02);
 }
 
 .settings-item-header {
@@ -80,20 +88,20 @@
 .settings-item-key {
   font-size: 13px;
   font-weight: 600;
-  color: #4fc1ff;
+  color: var(--info);
 }
 
 .settings-item-type {
   font-size: 11px;
-  color: #777;
-  background: #2a2a2a;
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
   padding: 1px 6px;
   border-radius: 3px;
 }
 
 .settings-item-description {
   font-size: 12px;
-  color: #999;
+  color: var(--text-secondary);
   margin: 0 0 8px 0;
   line-height: 1.4;
 }
@@ -106,52 +114,56 @@
 
 .settings-item-control input[type="text"],
 .settings-item-control input[type="number"] {
-  background: #3c3c3c;
-  border: 1px solid #555;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
   border-radius: 3px;
-  color: #ccc;
+  color: var(--text-primary);
   font-size: 13px;
   padding: 4px 8px;
   outline: none;
   max-width: 300px;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .settings-item-control input[type="text"]:focus,
 .settings-item-control input[type="number"]:focus {
-  border-color: #007acc;
+  border-color: var(--accent);
+  box-shadow: var(--focus-ring);
 }
 
 .settings-item-control select {
-  background: #3c3c3c;
-  border: 1px solid #555;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
   border-radius: 3px;
-  color: #ccc;
+  color: var(--text-primary);
   font-size: 13px;
   padding: 4px 8px;
   outline: none;
   max-width: 300px;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .settings-item-control select:focus {
-  border-color: #007acc;
+  border-color: var(--accent);
+  box-shadow: var(--focus-ring);
 }
 
 .settings-item-control input[type="checkbox"] {
   width: 18px;
   height: 18px;
-  accent-color: #007acc;
+  accent-color: var(--accent);
   cursor: pointer;
 }
 
 .settings-item-default {
   font-size: 11px;
-  color: #666;
+  color: var(--text-muted);
   margin-top: 4px;
 }
 
 .settings-empty {
   padding: 20px;
   text-align: center;
-  color: #777;
+  color: var(--text-muted);
   font-size: 13px;
 }

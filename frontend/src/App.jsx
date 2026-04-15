@@ -3,6 +3,7 @@ import { EditorProvider } from './contexts/EditorContext';
 import { CommandProvider, useCommands } from './contexts/CommandContext';
 import { TerminalProvider, useTerminal } from './contexts/TerminalContext';
 import { SettingsProvider } from './contexts/SettingsContext';
+import { GitProvider } from './contexts/GitContext';
 import ActivityBar from './components/ActivityBar';
 import Sidebar from './components/Sidebar';
 import TabBar from './components/TabBar';
@@ -104,20 +105,22 @@ function AppInner() {
 
   return (
     <SettingsProvider rootPath={rootPath}>
-      <div class="app-shell">
-        <div class="app-main">
-          <ActivityBar activeView={activeView} onViewChange={setActiveView} />
-          <Sidebar activeView={activeView} rootPath={rootPath} />
-          <div class="editor-area">
-            <TabBar />
-            <Breadcrumbs />
-            <EditorPane />
+      <GitProvider rootPath={rootPath}>
+        <div class="app-shell">
+          <div class="app-main">
+            <ActivityBar activeView={activeView} onViewChange={setActiveView} />
+            <Sidebar activeView={activeView} rootPath={rootPath} />
+            <div class="editor-area">
+              <TabBar />
+              <Breadcrumbs />
+              <EditorPane />
+            </div>
           </div>
+          <TerminalPanel />
+          <StatusBar />
+          <CommandPalette />
         </div>
-        <TerminalPanel />
-        <StatusBar />
-        <CommandPalette />
-      </div>
+      </GitProvider>
     </SettingsProvider>
   );
 }

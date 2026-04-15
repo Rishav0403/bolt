@@ -4,6 +4,7 @@ import (
 	"embed"
 
 	"bolt/backend/fs"
+	"bolt/backend/git"
 	"bolt/backend/search"
 	"bolt/backend/settings"
 	"bolt/backend/terminal"
@@ -23,7 +24,8 @@ func main() {
 	textBufferService := textbuffer.NewService()
 	terminalService := terminal.NewService()
 	searchService := search.NewService()
-	app := NewApp(fsService, terminalService, searchService)
+	gitService := git.NewService()
+	app := NewApp(fsService, terminalService, searchService, gitService)
 
 	err := wails.Run(&options.App{
 		Title:     "Bolt",
@@ -44,6 +46,7 @@ func main() {
 			textBufferService,
 			terminalService,
 			searchService,
+			gitService,
 		},
 	})
 
