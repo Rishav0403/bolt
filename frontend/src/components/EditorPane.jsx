@@ -1,6 +1,7 @@
 import { createEffect, onMount, onCleanup, untrack } from 'solid-js';
 import * as monaco from 'monaco-editor';
 import { useEditor } from '../contexts/EditorContext';
+import { useSettings } from '../contexts/SettingsContext';
 import { getWailsFs, getWailsTextBuffer } from '../utils/wails';
 
 // Configure Monaco workers via import.meta.url (Vite handles bundling)
@@ -39,6 +40,7 @@ self.MonacoEnvironment = {
 
 export default function EditorPane() {
   const { tabs, activeTab, updateTabContent, closeTab, markTabSaved, syncModifiedFlag, getTabContent } = useEditor();
+  const { settings } = useSettings();
 
   let containerRef;
   let editorInstance = null;
@@ -178,6 +180,23 @@ export default function EditorPane() {
       debounceTimer = setTimeout(() => {
         syncModifiedFlag(id);
       }, 300);
+    });
+
+    // Apply settings from SettingsContext to Monaco editor options.
+    // This effect is created inside onMount so editorInstance is guaranteed to exist.
+    createEffect(() => {
+      const s = settings();
+      editorInstance.updateOptions({
+        fontSize: s.fontSize,
+        fontFamily: s.fontFamily,
+        tabSize: s.tabSize,
+        wordWrap: s.wordWrap,
+        minimap: { enabled: s.minimap },
+        stickyScroll: { enabled: s.stickyScrollEnabled, maxLineCount: s.stickyScrollMaxLines },
+      });
+      if (s.theme) {
+        monaco.editor.setTheme(s.theme);
+      }
     });
 
     // If there's already an active tab, show it

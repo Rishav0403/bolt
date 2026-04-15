@@ -10,3 +10,4 @@ frontend/package.json.md5
 *.dylib
 .DS_Store
 Thumbs.db
+frontend/.vite/

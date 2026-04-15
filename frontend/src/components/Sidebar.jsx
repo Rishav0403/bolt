@@ -1,6 +1,8 @@
 import { Show, For, createMemo } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import FileExplorer from './FileExplorer';
+import SearchPanel from './SearchPanel';
+import SettingsEditor from './SettingsEditor';
 import { SearchIcon, GitIcon, ExtensionsIcon } from '../utils/icons';
 
 function PlaceholderView(props) {
@@ -28,7 +30,7 @@ const sidebarViews = [
   {
     id: 'search',
     title: 'SEARCH',
-    component: () => <PlaceholderView icon={<SearchIcon size={48} strokeWidth={1} opacity={0.3} />} title="Search" hint="Coming in Phase 2" />,
+    component: (props) => <SearchPanel rootPath={props.rootPath} />,
   },
   {
     id: 'git',
@@ -43,7 +45,7 @@ const sidebarViews = [
   {
     id: 'settings',
     title: 'SETTINGS',
-    component: () => <PlaceholderView title="Settings" hint="Coming soon" />,
+    component: (props) => <SettingsEditor rootPath={props.rootPath} />,
   },
 ];
 
