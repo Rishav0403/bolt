@@ -45,3 +45,11 @@ export function getWailsSearch() {
 export function getWailsSettings() {
   return window.go?.settings?.Service ?? null;
 }
+
+/**
+ * Returns the Wails Git service proxy, or null if not in a Wails environment.
+ * Methods: GetStatus, GetBranch, GetDiff, StageFile, UnstageFile, Commit, GetLog.
+ */
+export function getWailsGit() {
+  return window.go?.git?.Service ?? null;
+}

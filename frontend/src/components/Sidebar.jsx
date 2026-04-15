@@ -2,6 +2,7 @@ import { Show, For, createMemo } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import FileExplorer from './FileExplorer';
 import SearchPanel from './SearchPanel';
+import GitPanel from './GitPanel';
 import SettingsEditor from './SettingsEditor';
 import { SearchIcon, GitIcon, ExtensionsIcon } from '../utils/icons';
 
@@ -35,7 +36,7 @@ const sidebarViews = [
   {
     id: 'git',
     title: 'SOURCE CONTROL',
-    component: () => <PlaceholderView icon={<GitIcon size={48} strokeWidth={1} opacity={0.3} />} title="Source Control" hint="Coming in Phase 4" />,
+    component: (props) => <GitPanel rootPath={props.rootPath} />,
   },
   {
     id: 'extensions',

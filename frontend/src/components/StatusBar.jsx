@@ -1,19 +1,26 @@
 import { Show } from 'solid-js';
 import { useEditor } from '../contexts/EditorContext';
 import { useTerminal } from '../contexts/TerminalContext';
+import { useGit } from '../contexts/GitContext';
 import { GitBranchIcon, BoltIcon } from '../utils/icons';
 
 export default function StatusBar() {
   const { activeTab } = useEditor();
   const { terminals, togglePanel } = useTerminal();
+  const { branch, status } = useGit();
 
   return (
     <div class="status-bar">
       <div class="status-bar-left">
         <span class="status-bar-item clickable" title="Source Control">
           <GitBranchIcon />
-          <span>main</span>
+          <span>{branch().Name || 'main'}</span>
         </span>
+        <Show when={status().length > 0}>
+          <span class="status-bar-item" title={`${status().length} pending changes`}>
+            {status().length} change{status().length !== 1 ? 's' : ''}
+          </span>
+        </Show>
       </div>
       <div class="status-bar-right">
         <Show when={terminals.length > 0}>
