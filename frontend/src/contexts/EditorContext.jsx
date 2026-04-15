@@ -81,7 +81,20 @@ export function useEditor() {
 }
 
 function getLanguageFromPath(path) {
-  const ext = path.split('.').pop()?.toLowerCase();
+  // Extract the basename first (handles both / and \ separators for cross-platform)
+  const lastSlash = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
+  const name = lastSlash >= 0 ? path.substring(lastSlash + 1) : path;
+
+  // Check extensionless known filenames first (case-insensitive)
+  const nameLower = name.toLowerCase();
+  const knownNames = { makefile: 'makefile', dockerfile: 'dockerfile' };
+  if (knownNames[nameLower]) return knownNames[nameLower];
+
+  // Then check the extension from the basename (not the full path)
+  const dotIdx = name.lastIndexOf('.');
+  if (dotIdx <= 0) return 'plaintext'; // no extension, or hidden file like .gitignore
+  const ext = name.substring(dotIdx + 1).toLowerCase();
+
   const extToLang = {
     js: 'javascript', jsx: 'javascript', ts: 'typescript', tsx: 'typescript',
     go: 'go', py: 'python', rs: 'rust', rb: 'ruby',
@@ -89,7 +102,6 @@ function getLanguageFromPath(path) {
     html: 'html', htm: 'html', css: 'css', scss: 'scss', less: 'less',
     json: 'json', yaml: 'yaml', yml: 'yaml', toml: 'toml',
     md: 'markdown', xml: 'xml', sql: 'sql', sh: 'shell',
-    dockerfile: 'dockerfile', makefile: 'makefile',
     mod: 'go', sum: 'plaintext', txt: 'plaintext',
   };
   return extToLang[ext] || 'plaintext';
