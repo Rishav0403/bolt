@@ -54,8 +54,19 @@ export function SettingsProvider(props) {
           setDefaults(defaultsFromSchema(s));
         }
       }).catch(err => console.error('Failed to load schema:', err));
+    } else {
+      // Demo mode: derive schema from FALLBACK_DEFAULTS so SettingsEditor has
+      // something to render even without the Wails backend.
+      const fallbackSchema = Object.entries(FALLBACK_DEFAULTS).map(([key, val]) => {
+        let type;
+        if (Array.isArray(val)) type = 'array';
+        else if (typeof val === 'boolean') type = 'bool';
+        else if (typeof val === 'number') type = 'number';
+        else type = 'string';
+        return { key, type, default: val, description: key, enum: [] };
+      });
+      setSchema(fallbackSchema);
     }
-    // In demo mode, use fallback defaults (already set)
   });
 
   async function updateSetting(key, value) {
