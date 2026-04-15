@@ -1,10 +1,10 @@
 package search
 
 import (
-	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -430,6 +430,53 @@ func TestSearch_rgNotFound(t *testing.T) {
 	}
 	if err.Error() != "ripgrep (rg) not found" {
 		t.Errorf("unexpected error message: %v", err)
+	}
+}
+
+func TestReplace_wholeWord(t *testing.T) {
+	requireRg(t)
+	dir := t.TempDir()
+
+	// File contains "test" as a whole word and as part of "testing" and "contest"
+	if err := os.WriteFile(filepath.Join(dir, "words.txt"), []byte("this is a test\ntesting things\ncontest winner\ntest results\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	svc := NewService()
+	count, err := svc.Replace(ReplaceOptions{
+		SearchOptions: SearchOptions{
+			Query:         "test",
+			RootPath:      dir,
+			CaseSensitive: true,
+			WholeWord:     true,
+		},
+		ReplaceText: "exam",
+	})
+	if err != nil {
+		t.Fatalf("Replace failed: %v", err)
+	}
+	if count != 1 {
+		t.Errorf("expected 1 modified file, got %d", count)
+	}
+
+	// Read back and verify only whole-word "test" was replaced
+	content, err := os.ReadFile(filepath.Join(dir, "words.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(content)
+
+	if !strings.Contains(got, "testing things") {
+		t.Error("wholeWord replace should NOT have modified 'testing'")
+	}
+	if !strings.Contains(got, "contest winner") {
+		t.Error("wholeWord replace should NOT have modified 'contest'")
+	}
+	if strings.Contains(got, "this is a test") {
+		t.Error("wholeWord replace should have replaced 'test' (whole word)")
+	}
+	if !strings.Contains(got, "this is a exam") {
+		t.Error("wholeWord replace should have replaced 'test' with 'exam'")
 	}
 }
 

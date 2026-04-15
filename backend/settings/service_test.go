@@ -252,37 +252,78 @@ func TestDefaultSettings_NewFields(t *testing.T) {
 	}
 }
 
-func TestUpdateSetting_TerminalShell(t *testing.T) {
-	svc := &Service{
-		settings: DefaultSettings(),
-		filePath: filepath.Join(t.TempDir(), "settings.json"),
+func TestUpdateSetting_Phase2Fields(t *testing.T) {
+	tests := []struct {
+		name  string
+		key   string
+		value interface{}
+		check func(t *testing.T, s Settings)
+	}{
+		{
+			name:  "TerminalShell",
+			key:   "terminalShell",
+			value: "/bin/zsh",
+			check: func(t *testing.T, s Settings) {
+				if s.TerminalShell != "/bin/zsh" {
+					t.Errorf("expected terminalShell '/bin/zsh', got '%s'", s.TerminalShell)
+				}
+			},
+		},
+		{
+			name:  "TerminalFontSize",
+			key:   "terminalFontSize",
+			value: float64(16),
+			check: func(t *testing.T, s Settings) {
+				if s.TerminalFontSize != 16 {
+					t.Errorf("expected terminalFontSize 16, got %d", s.TerminalFontSize)
+				}
+			},
+		},
+		{
+			name:  "BreadcrumbsEnabled",
+			key:   "breadcrumbsEnabled",
+			value: false,
+			check: func(t *testing.T, s Settings) {
+				if s.BreadcrumbsEnabled != false {
+					t.Error("expected breadcrumbsEnabled to be false")
+				}
+			},
+		},
+		{
+			name:  "StickyScrollEnabled",
+			key:   "stickyScrollEnabled",
+			value: false,
+			check: func(t *testing.T, s Settings) {
+				if s.StickyScrollEnabled != false {
+					t.Error("expected stickyScrollEnabled to be false")
+				}
+			},
+		},
+		{
+			name:  "StickyScrollMaxLines",
+			key:   "stickyScrollMaxLines",
+			value: float64(10),
+			check: func(t *testing.T, s Settings) {
+				if s.StickyScrollMaxLines != 10 {
+					t.Errorf("expected stickyScrollMaxLines 10, got %d", s.StickyScrollMaxLines)
+				}
+			},
+		},
 	}
 
-	err := svc.UpdateSetting("terminalShell", "/bin/zsh")
-	if err != nil {
-		t.Fatalf("UpdateSetting failed: %v", err)
-	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			svc := &Service{
+				settings: DefaultSettings(),
+				filePath: filepath.Join(t.TempDir(), "settings.json"),
+			}
 
-	got := svc.GetSettings()
-	if got.TerminalShell != "/bin/zsh" {
-		t.Errorf("expected terminalShell '/bin/zsh', got '%s'", got.TerminalShell)
-	}
-}
+			if err := svc.UpdateSetting(tc.key, tc.value); err != nil {
+				t.Fatalf("UpdateSetting(%q) failed: %v", tc.key, err)
+			}
 
-func TestUpdateSetting_TerminalFontSize(t *testing.T) {
-	svc := &Service{
-		settings: DefaultSettings(),
-		filePath: filepath.Join(t.TempDir(), "settings.json"),
-	}
-
-	err := svc.UpdateSetting("terminalFontSize", float64(16))
-	if err != nil {
-		t.Fatalf("UpdateSetting failed: %v", err)
-	}
-
-	got := svc.GetSettings()
-	if got.TerminalFontSize != 16 {
-		t.Errorf("expected terminalFontSize 16, got %d", got.TerminalFontSize)
+			tc.check(t, svc.GetSettings())
+		})
 	}
 }
 
@@ -306,57 +347,6 @@ func TestUpdateSetting_SearchExcludeGlobs(t *testing.T) {
 	}
 	if got.SearchExcludeGlobs[1] != "**/tmp/**" {
 		t.Errorf("expected searchExcludeGlobs[1] = '**/tmp/**', got '%s'", got.SearchExcludeGlobs[1])
-	}
-}
-
-func TestUpdateSetting_BreadcrumbsEnabled(t *testing.T) {
-	svc := &Service{
-		settings: DefaultSettings(),
-		filePath: filepath.Join(t.TempDir(), "settings.json"),
-	}
-
-	err := svc.UpdateSetting("breadcrumbsEnabled", false)
-	if err != nil {
-		t.Fatalf("UpdateSetting failed: %v", err)
-	}
-
-	got := svc.GetSettings()
-	if got.BreadcrumbsEnabled != false {
-		t.Error("expected breadcrumbsEnabled to be false")
-	}
-}
-
-func TestUpdateSetting_StickyScrollEnabled(t *testing.T) {
-	svc := &Service{
-		settings: DefaultSettings(),
-		filePath: filepath.Join(t.TempDir(), "settings.json"),
-	}
-
-	err := svc.UpdateSetting("stickyScrollEnabled", false)
-	if err != nil {
-		t.Fatalf("UpdateSetting failed: %v", err)
-	}
-
-	got := svc.GetSettings()
-	if got.StickyScrollEnabled != false {
-		t.Error("expected stickyScrollEnabled to be false")
-	}
-}
-
-func TestUpdateSetting_StickyScrollMaxLines(t *testing.T) {
-	svc := &Service{
-		settings: DefaultSettings(),
-		filePath: filepath.Join(t.TempDir(), "settings.json"),
-	}
-
-	err := svc.UpdateSetting("stickyScrollMaxLines", float64(10))
-	if err != nil {
-		t.Fatalf("UpdateSetting failed: %v", err)
-	}
-
-	got := svc.GetSettings()
-	if got.StickyScrollMaxLines != 10 {
-		t.Errorf("expected stickyScrollMaxLines 10, got %d", got.StickyScrollMaxLines)
 	}
 }
 
