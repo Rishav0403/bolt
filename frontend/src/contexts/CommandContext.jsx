@@ -36,7 +36,14 @@ export function CommandProvider(props) {
   function registerCommands(cmds) {
     setCommands(prev => {
       const existing = new Set(prev.map(c => c.id));
-      const newCmds = cmds.filter(c => !existing.has(c.id));
+      const newCmds = cmds
+        .filter(c => !existing.has(c.id))
+        .map(c => ({
+          ...c,
+          // Parse keybinding once at registration time so the keydown
+          // hot path only needs to compare, not parse strings.
+          parsedBinding: parseKeybinding(c.keybinding),
+        }));
       if (newCmds.length === 0) return prev;
       return [...prev, ...newCmds];
     });
@@ -64,9 +71,8 @@ export function CommandProvider(props) {
     }
 
     for (const cmd of commands()) {
-      if (!cmd.keybinding) continue;
-      const binding = parseKeybinding(cmd.keybinding);
-      if (matchesKeybinding(e, binding)) {
+      if (!cmd.parsedBinding) continue;
+      if (matchesKeybinding(e, cmd.parsedBinding)) {
         e.preventDefault();
         cmd.handler();
         return;
@@ -103,5 +109,3 @@ export function useCommands() {
   if (!ctx) throw new Error('useCommands must be used within CommandProvider');
   return ctx;
 }
-
-export default CommandContext;

@@ -1,5 +1,6 @@
 import { createSignal, createMemo, createEffect, Show, For } from 'solid-js';
 import { useCommands } from '../contexts/CommandContext';
+import { SearchIcon } from '../utils/icons';
 
 // Simple fuzzy match scoring
 function fuzzyMatch(query, text) {
@@ -92,12 +93,12 @@ export default function CommandPalette() {
         e.preventDefault();
         setSelectedIndex(prev => Math.max(prev - 1, 0));
         break;
-      case 'Enter':
+      case 'Enter': {
         e.preventDefault();
-        if (filteredCommands()[selectedIndex()]) {
-          executeCommand(filteredCommands()[selectedIndex()].id);
-        }
+        const item = filteredCommands()[selectedIndex()];
+        if (item) executeCommand(item.id);
         break;
+      }
       case 'Escape':
         e.preventDefault();
         closePalette();
@@ -110,10 +111,7 @@ export default function CommandPalette() {
       <div class="command-palette-overlay" onClick={closePalette} />
       <div class="command-palette">
         <div class="command-palette-input-wrapper">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="command-palette-search-icon">
-            <circle cx="11" cy="11" r="7" />
-            <path d="M16 16L21 21" />
-          </svg>
+          <SearchIcon size={14} strokeWidth={2} class="command-palette-search-icon" />
           <input
             ref={inputRef}
             class="command-palette-input"
@@ -131,7 +129,8 @@ export default function CommandPalette() {
           <For each={filteredCommands()}>
             {(cmd, idx) => (
               <div
-                class={`command-palette-item ${idx() === selectedIndex() ? 'selected' : ''}`}
+                class="command-palette-item"
+                classList={{ selected: idx() === selectedIndex() }}
                 onClick={() => executeCommand(cmd.id)}
                 onMouseEnter={() => setSelectedIndex(idx())}
               >

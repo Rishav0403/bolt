@@ -1,4 +1,4 @@
-import { createSignal, Show, For } from 'solid-js';
+import { createSignal, createEffect, onCleanup, Show, For } from 'solid-js';
 import { getWailsFs } from '../utils/wails';
 import { getExtColor } from '../utils/fileIcons';
 import { parentDir, joinPath } from '../utils/pathUtils';
@@ -10,6 +10,20 @@ export default function TreeNode(props) {
   const [children, setChildren] = createSignal(props.entry.children || []);
   const [loading, setLoading] = createSignal(false);
   const [contextMenu, setContextMenu] = createSignal(null);
+
+  // Close context menu on scroll or window resize so it doesn't float
+  // in the wrong position.
+  createEffect(() => {
+    if (contextMenu()) {
+      const dismiss = () => setContextMenu(null);
+      window.addEventListener('scroll', dismiss, true);
+      window.addEventListener('resize', dismiss);
+      onCleanup(() => {
+        window.removeEventListener('scroll', dismiss, true);
+        window.removeEventListener('resize', dismiss);
+      });
+    }
+  });
 
   async function toggleExpand() {
     if (!props.entry.isDir) return;

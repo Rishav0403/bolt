@@ -69,6 +69,20 @@ function AppInner() {
         keybinding: 'Ctrl+Shift+X',
         handler: () => setActiveView('extensions'),
       },
+      // Editor shortcuts — handlers delegate to EditorPane static methods
+      // so all keyboard shortcuts flow through the single CommandContext dispatcher.
+      {
+        id: 'saveFile',
+        label: 'Save File',
+        keybinding: 'Ctrl+S',
+        handler: () => EditorPane.saveActiveTab?.(),
+      },
+      {
+        id: 'closeTab',
+        label: 'Close Tab',
+        keybinding: 'Ctrl+W',
+        handler: () => EditorPane.closeActiveTab?.(),
+      },
     ]);
   });
 

@@ -1,5 +1,6 @@
-import { createContext, useContext, createSignal, createMemo } from 'solid-js';
+import { createContext, useContext, createSignal, createMemo, untrack } from 'solid-js';
 import { createStore, produce } from 'solid-js/store';
+import { getLanguageFromPath } from '../utils/fileIcons';
 
 const EditorContext = createContext();
 
@@ -14,7 +15,11 @@ export function EditorProvider(props) {
   const activeTab = createMemo(() => {
     const id = activeTabId();
     if (!id) return null;
-    return tabs.find(t => t.id === id) || null;
+    // Track only activeTabId and tabs.length. Use untrack for the .find()
+    // so property reads on individual tabs (isModified from syncModifiedFlag)
+    // don't cause this memo to re-compute -- critical for typing performance.
+    const _len = tabs.length;
+    return untrack(() => tabs.find(t => t.id === id)) || null;
   });
 
   function openFile(path, name, content) {
@@ -44,10 +49,7 @@ export function EditorProvider(props) {
     if (idx === -1) return;
     delete contentMap[id];
     setTabs(produce(prev => { prev.splice(idx, 1); }));
-    // After removal, always reconcile activeTabId:
-    // - if the closed tab was active, pick a neighbor
-    // - if the closed tab was the one activeTabId points to (same check), clear it
-    // - if tabs is now empty, clear it
+    // After removal, if the closed tab was active pick a neighbor; if empty, clear.
     if (id === activeTabId() || tabs.length === 0) {
       if (tabs.length > 0) {
         const newIdx = Math.min(idx, tabs.length - 1);
@@ -112,29 +114,3 @@ export function useEditor() {
   if (!ctx) throw new Error('useEditor must be used within EditorProvider');
   return ctx;
 }
-
-function getLanguageFromPath(path) {
-  const lastSlash = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
-  const name = lastSlash >= 0 ? path.substring(lastSlash + 1) : path;
-
-  const nameLower = name.toLowerCase();
-  const knownNames = { makefile: 'makefile', dockerfile: 'dockerfile' };
-  if (knownNames[nameLower]) return knownNames[nameLower];
-
-  const dotIdx = name.lastIndexOf('.');
-  if (dotIdx <= 0) return 'plaintext';
-  const ext = name.substring(dotIdx + 1).toLowerCase();
-
-  const extToLang = {
-    js: 'javascript', jsx: 'javascript', ts: 'typescript', tsx: 'typescript',
-    go: 'go', py: 'python', rs: 'rust', rb: 'ruby',
-    java: 'java', c: 'c', cpp: 'cpp', h: 'c', hpp: 'cpp',
-    html: 'html', htm: 'html', css: 'css', scss: 'scss', less: 'less',
-    json: 'json', yaml: 'yaml', yml: 'yaml', toml: 'toml',
-    md: 'markdown', xml: 'xml', sql: 'sql', sh: 'shell',
-    mod: 'go', sum: 'plaintext', txt: 'plaintext',
-  };
-  return extToLang[ext] || 'plaintext';
-}
-
-export default EditorContext;

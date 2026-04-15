@@ -63,6 +63,49 @@ export default function EditorPane() {
     editorInstance.focus();
   }
 
+  /**
+   * Save the active tab. Exposed via saveActiveTab so App.jsx can
+   * register it as a command in CommandContext (Ctrl+S).
+   */
+  function saveActiveTab() {
+    const tab = activeTab();
+    if (!tab) return;
+
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+      debounceTimer = null;
+    }
+
+    const content = getTabContent(tab.id) ?? '';
+    const fs = getWailsFs();
+    if (fs) {
+      fs.WriteFile(tab.path, content)
+        .then(() => markTabSaved(tab.id, content))
+        .catch(err => console.error('Failed to save file:', err));
+    } else {
+      markTabSaved(tab.id, content);
+    }
+  }
+
+  /**
+   * Close the active tab, disposing its Monaco model.
+   * Exposed via closeActiveTab so App.jsx can register it as a
+   * command in CommandContext (Ctrl+W).
+   */
+  function closeActiveTab() {
+    const tab = activeTab();
+    if (!tab) return;
+    const uri = monaco.Uri.parse(`file://${tab.path}`);
+    const model = monaco.editor.getModel(uri);
+    if (model) model.dispose();
+    currentTabId = null;
+    closeTab(tab.id);
+  }
+
+  // Expose imperative handles so App can wire them into CommandContext
+  EditorPane.saveActiveTab = saveActiveTab;
+  EditorPane.closeActiveTab = closeActiveTab;
+
   onMount(() => {
     editorInstance = monaco.editor.create(containerRef, {
       value: '',
@@ -110,9 +153,6 @@ export default function EditorPane() {
     if (tab) {
       createOrSwitchModel(tab.id, tab.path, tab.language, tab.originalContent);
     }
-
-    // Keyboard shortcuts
-    window.addEventListener('keydown', handleKeyDown);
   });
 
   // React to active tab changes -- only track tab identity, not store properties
@@ -154,45 +194,7 @@ export default function EditorPane() {
     }
   });
 
-  function handleKeyDown(e) {
-    // Save: Ctrl+S
-    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-      e.preventDefault();
-      const tab = activeTab();
-      if (!tab) return;
-
-      if (debounceTimer) {
-        clearTimeout(debounceTimer);
-        debounceTimer = null;
-      }
-
-      const content = getTabContent(tab.id) ?? '';
-      const fs = getWailsFs();
-      if (fs) {
-        fs.WriteFile(tab.path, content)
-          .then(() => markTabSaved(tab.id, content))
-          .catch(err => console.error('Failed to save file:', err));
-      } else {
-        markTabSaved(tab.id, content);
-      }
-    }
-
-    // Close tab: Ctrl+W
-    if ((e.ctrlKey || e.metaKey) && e.key === 'w') {
-      e.preventDefault();
-      const tab = activeTab();
-      if (tab) {
-        const uri = monaco.Uri.parse(`file://${tab.path}`);
-        const model = monaco.editor.getModel(uri);
-        if (model) model.dispose();
-        currentTabId = null;
-        closeTab(tab.id);
-      }
-    }
-  }
-
   onCleanup(() => {
-    window.removeEventListener('keydown', handleKeyDown);
     if (debounceTimer) clearTimeout(debounceTimer);
     if (editorInstance) {
       editorInstance.dispose();

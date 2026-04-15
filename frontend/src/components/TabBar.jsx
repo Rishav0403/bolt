@@ -19,7 +19,8 @@ export default function TabBar() {
               const icon = getFileIcon(tab.name);
               return (
                 <div
-                  class={`tab ${tab.id === activeTabId() ? 'active' : ''}`}
+                  class="tab"
+                  classList={{ active: tab.id === activeTabId() }}
                   onClick={() => setActiveTabId(tab.id)}
                   title={tab.path}
                 >

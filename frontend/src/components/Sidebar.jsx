@@ -1,5 +1,7 @@
-import { Show, Switch, Match } from 'solid-js';
+import { Show, For, createMemo } from 'solid-js';
+import { Dynamic } from 'solid-js/web';
 import FileExplorer from './FileExplorer';
+import { SearchIcon, GitIcon, ExtensionsIcon } from '../utils/icons';
 
 function PlaceholderView(props) {
   return (
@@ -13,65 +15,54 @@ function PlaceholderView(props) {
   );
 }
 
-const placeholderIcons = {
-  search: () => (
-    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity="0.3">
-      <circle cx="11" cy="11" r="7" />
-      <path d="M16 16L21 21" />
-    </svg>
-  ),
-  git: () => (
-    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity="0.3">
-      <circle cx="12" cy="6" r="2" />
-      <circle cx="12" cy="18" r="2" />
-      <circle cx="18" cy="12" r="2" />
-      <path d="M12 8V16" />
-      <path d="M12 8C12 10 14 12 16 12" />
-    </svg>
-  ),
-  extensions: () => (
-    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity="0.3">
-      <rect x="3" y="3" width="8" height="8" rx="1" />
-      <rect x="13" y="3" width="8" height="8" rx="1" />
-      <rect x="3" y="13" width="8" height="8" rx="1" />
-      <rect x="13" y="13" width="8" height="8" rx="1" />
-    </svg>
-  ),
-};
+/**
+ * Data-driven sidebar view definitions.
+ * Adding a new sidebar view is a single-line change here.
+ */
+const sidebarViews = [
+  {
+    id: 'explorer',
+    title: 'EXPLORER',
+    component: (props) => <FileExplorer rootPath={props.rootPath} />,
+  },
+  {
+    id: 'search',
+    title: 'SEARCH',
+    component: () => <PlaceholderView icon={<SearchIcon size={48} strokeWidth={1} opacity={0.3} />} title="Search" hint="Coming in Phase 2" />,
+  },
+  {
+    id: 'git',
+    title: 'SOURCE CONTROL',
+    component: () => <PlaceholderView icon={<GitIcon size={48} strokeWidth={1} opacity={0.3} />} title="Source Control" hint="Coming in Phase 4" />,
+  },
+  {
+    id: 'extensions',
+    title: 'EXTENSIONS',
+    component: () => <PlaceholderView icon={<ExtensionsIcon size={48} strokeWidth={1} opacity={0.3} />} title="Extensions" hint="Coming in Phase 5" />,
+  },
+  {
+    id: 'settings',
+    title: 'SETTINGS',
+    component: () => <PlaceholderView title="Settings" hint="Coming soon" />,
+  },
+];
 
-const titles = {
-  explorer: 'EXPLORER',
-  search: 'SEARCH',
-  git: 'SOURCE CONTROL',
-  extensions: 'EXTENSIONS',
-  settings: 'SETTINGS',
-};
+const viewMap = Object.fromEntries(sidebarViews.map(v => [v.id, v]));
 
 export default function Sidebar(props) {
+  const currentView = createMemo(() => {
+    const id = props.activeView();
+    return id ? viewMap[id] || null : null;
+  });
+
   return (
-    <Show when={props.activeView()}>
+    <Show when={currentView()}>
       <div class="sidebar">
         <div class="sidebar-header">
-          <span class="sidebar-title">{titles[props.activeView()] || ''}</span>
+          <span class="sidebar-title">{currentView().title}</span>
         </div>
         <div class="sidebar-content">
-          <Switch>
-            <Match when={props.activeView() === 'explorer'}>
-              <FileExplorer rootPath={props.rootPath} />
-            </Match>
-            <Match when={props.activeView() === 'search'}>
-              <PlaceholderView icon={placeholderIcons.search()} title="Search" hint="Coming in Phase 2" />
-            </Match>
-            <Match when={props.activeView() === 'git'}>
-              <PlaceholderView icon={placeholderIcons.git()} title="Source Control" hint="Coming in Phase 4" />
-            </Match>
-            <Match when={props.activeView() === 'extensions'}>
-              <PlaceholderView icon={placeholderIcons.extensions()} title="Extensions" hint="Coming in Phase 5" />
-            </Match>
-            <Match when={props.activeView() === 'settings'}>
-              <PlaceholderView title="Settings" hint="Coming soon" />
-            </Match>
-          </Switch>
+          {currentView().component(props)}
         </div>
       </div>
     </Show>
