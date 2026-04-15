@@ -43,6 +43,11 @@ Bolt uses the system's native webview instead of bundling Chromium, resulting in
 - **Workspace & Settings** — 3-tier settings precedence (default → user → workspace), `.bolt/settings.json` workspace config, searchable settings editor UI with User/Workspace scope tabs
 - **Minimap & Breadcrumbs** — Monaco minimap wired to settings, breadcrumb navigation bar with file path segments, sticky scroll support
 
+### Phase 3 — UI Polish & Git Integration
+- **Design System** — CSS custom properties for spacing, shadows, radius, transitions, typography; global focus rings, disabled states, keyframe animations; WCAG AA contrast compliance
+- **Component Polish** — Smooth transitions and hover states across activity bar, sidebar, tabs, terminal, search, breadcrumbs, command palette, context menu, welcome screen, and settings editor
+- **Git Integration** — Source control panel with file status tracking (modified, added, deleted, renamed, conflicted), staging/unstaging (individual and bulk), commit with message, branch info display, commit history; Go backend parsing `git status --porcelain=v2`
+
 ## Prerequisites
 
 - [Go 1.21+](https://go.dev/dl/)
@@ -99,6 +104,7 @@ bolt/
 │   ├── settings/        # Settings service (user + workspace)
 │   ├── terminal/        # PTY terminal service
 │   ├── search/          # Ripgrep search service
+│   ├── git/             # Git integration service
 │   └── textbuffer/      # Piece-table text buffer
 ├── frontend/
 │   └── src/
@@ -108,6 +114,7 @@ bolt/
 │       │   ├── CommandPalette.jsx
 │       │   ├── EditorPane.jsx
 │       │   ├── FileExplorer.jsx
+│       │   ├── GitPanel.jsx
 │       │   ├── SearchPanel.jsx
 │       │   ├── SettingsEditor.jsx
 │       │   ├── Sidebar.jsx
@@ -119,6 +126,7 @@ bolt/
 │       │   ├── CommandContext.jsx
 │       │   ├── EditorContext.jsx
 │       │   ├── SettingsContext.jsx
+│       │   ├── GitContext.jsx
 │       │   └── TerminalContext.jsx
 │       ├── utils/       # Helpers
 │       └── style.css    # Global styles
