@@ -13,6 +13,7 @@ export function EditorProvider(props) {
 
   const activeTab = createMemo(() => {
     const id = activeTabId();
+    if (!id) return null;
     return tabs.find(t => t.id === id) || null;
   });
 

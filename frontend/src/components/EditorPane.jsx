@@ -1,4 +1,4 @@
-import { createEffect, onMount, onCleanup } from 'solid-js';
+import { createEffect, onMount, onCleanup, untrack } from 'solid-js';
 import * as monaco from 'monaco-editor';
 import { useEditor } from '../contexts/EditorContext';
 import { getWailsFs } from '../utils/wails';
@@ -38,7 +38,7 @@ self.MonacoEnvironment = {
 };
 
 export default function EditorPane() {
-  const { activeTab, updateTabContent, closeTab, markTabSaved, syncModifiedFlag, getTabContent } = useEditor();
+  const { tabs, activeTab, updateTabContent, closeTab, markTabSaved, syncModifiedFlag, getTabContent } = useEditor();
 
   let containerRef;
   let editorInstance = null;
@@ -46,19 +46,17 @@ export default function EditorPane() {
   // Track which tab the editor is currently showing to avoid cross-tab content corruption
   let currentTabId = null;
 
-  function createOrSwitchModel(tab) {
-    if (!editorInstance || !tab) return;
-
-    const tabId = tab.id;
+  function createOrSwitchModel(tabId, tabPath, tabLanguage, originalContent) {
+    if (!editorInstance || !tabId) return;
     if (currentTabId === tabId) return;
     currentTabId = tabId;
 
-    const uri = monaco.Uri.parse(`file://${tab.path}`);
+    const uri = monaco.Uri.parse(`file://${tabPath}`);
     let model = monaco.editor.getModel(uri);
 
     if (!model) {
-      const content = getTabContent(tabId) ?? tab.originalContent ?? '';
-      model = monaco.editor.createModel(content, tab.language, uri);
+      const content = getTabContent(tabId) ?? originalContent ?? '';
+      model = monaco.editor.createModel(content, tabLanguage, uri);
     }
 
     editorInstance.setModel(model);
@@ -110,24 +108,49 @@ export default function EditorPane() {
     // If there's already an active tab, show it
     const tab = activeTab();
     if (tab) {
-      createOrSwitchModel(tab);
+      createOrSwitchModel(tab.id, tab.path, tab.language, tab.originalContent);
     }
 
     // Keyboard shortcuts
     window.addEventListener('keydown', handleKeyDown);
   });
 
-  // React to active tab changes
+  // React to active tab changes -- only track tab identity, not store properties
   createEffect(() => {
     const tab = activeTab();
     if (tab) {
-      createOrSwitchModel(tab);
+      // Only read tab.id in the tracked scope; read other properties inside
+      // untrack to avoid re-firing when originalContent etc. change on save.
+      const tabId = tab.id;
+      untrack(() => {
+        const t = tabs.find(t => t.id === tabId);
+        if (t) createOrSwitchModel(t.id, t.path, t.language, t.originalContent);
+      });
     } else {
-      // No active tab -- clear the editor model
       if (editorInstance) {
         editorInstance.setModel(null);
       }
       currentTabId = null;
+    }
+  });
+
+  // Dispose orphaned Monaco models when tabs are added/removed (e.g., via TabBar close button).
+  // Only track tabs.length to avoid re-firing on every store property mutation (like isModified).
+  createEffect(() => {
+    const _len = tabs.length; // tracked dependency: only fires on add/remove
+    // Read tab paths outside tracking to avoid depending on individual tab properties
+    const openUris = new Set(untrack(() => tabs.map(t => monaco.Uri.parse(`file://${t.path}`).toString())));
+    for (const model of monaco.editor.getModels()) {
+      if (!openUris.has(model.uri.toString())) {
+        model.dispose();
+      }
+    }
+    // If the current model was disposed, clear the tracking variable
+    if (currentTabId) {
+      const currentUri = monaco.Uri.parse(`file://${currentTabId}`).toString();
+      if (!openUris.has(currentUri)) {
+        currentTabId = null;
+      }
     }
   });
 

@@ -14,13 +14,13 @@ function PlaceholderView(props) {
 }
 
 const placeholderIcons = {
-  search: (
+  search: () => (
     <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity="0.3">
       <circle cx="11" cy="11" r="7" />
       <path d="M16 16L21 21" />
     </svg>
   ),
-  git: (
+  git: () => (
     <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity="0.3">
       <circle cx="12" cy="6" r="2" />
       <circle cx="12" cy="18" r="2" />
@@ -29,7 +29,7 @@ const placeholderIcons = {
       <path d="M12 8C12 10 14 12 16 12" />
     </svg>
   ),
-  extensions: (
+  extensions: () => (
     <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity="0.3">
       <rect x="3" y="3" width="8" height="8" rx="1" />
       <rect x="13" y="3" width="8" height="8" rx="1" />
@@ -60,13 +60,13 @@ export default function Sidebar(props) {
               <FileExplorer rootPath={props.rootPath} />
             </Match>
             <Match when={props.activeView() === 'search'}>
-              <PlaceholderView icon={placeholderIcons.search} title="Search" hint="Coming in Phase 2" />
+              <PlaceholderView icon={placeholderIcons.search()} title="Search" hint="Coming in Phase 2" />
             </Match>
             <Match when={props.activeView() === 'git'}>
-              <PlaceholderView icon={placeholderIcons.git} title="Source Control" hint="Coming in Phase 4" />
+              <PlaceholderView icon={placeholderIcons.git()} title="Source Control" hint="Coming in Phase 4" />
             </Match>
             <Match when={props.activeView() === 'extensions'}>
-              <PlaceholderView icon={placeholderIcons.extensions} title="Extensions" hint="Coming in Phase 5" />
+              <PlaceholderView icon={placeholderIcons.extensions()} title="Extensions" hint="Coming in Phase 5" />
             </Match>
             <Match when={props.activeView() === 'settings'}>
               <PlaceholderView title="Settings" hint="Coming soon" />
