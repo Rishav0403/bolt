@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+import { createContext, useContext, createSignal, onMount, onCleanup } from 'solid-js';
 
-const CommandContext = createContext(null);
+const CommandContext = createContext();
 
 /**
  * Parse a keybinding string like "Ctrl+Shift+P" into a descriptor
@@ -13,7 +13,6 @@ function parseKeybinding(kb) {
     ctrl: parts.includes('ctrl'),
     shift: parts.includes('shift'),
     alt: parts.includes('alt'),
-    // The last non-modifier part is the key
     key: parts.filter(p => !['ctrl', 'shift', 'alt'].includes(p)).pop() || '',
   };
 }
@@ -30,85 +29,77 @@ function matchesKeybinding(e, binding) {
   return e.key.toLowerCase() === binding.key;
 }
 
-export function CommandProvider({ children }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [commands, setCommands] = useState([]);
-  // Keep a ref for commands so the keydown handler always sees the latest list
-  const commandsRef = useRef(commands);
-  commandsRef.current = commands;
+export function CommandProvider(props) {
+  const [isOpen, setIsOpen] = createSignal(false);
+  const [commands, setCommands] = createSignal([]);
 
-  const registerCommand = useCallback((command) => {
-    setCommands(prev => {
-      if (prev.find(c => c.id === command.id)) return prev;
-      return [...prev, command];
-    });
-  }, []);
-
-  const registerCommands = useCallback((cmds) => {
+  function registerCommands(cmds) {
     setCommands(prev => {
       const existing = new Set(prev.map(c => c.id));
-      const newCmds = cmds.filter(c => !existing.has(c.id));
+      const newCmds = cmds
+        .filter(c => !existing.has(c.id))
+        .map(c => ({
+          ...c,
+          // Parse keybinding once at registration time so the keydown
+          // hot path only needs to compare, not parse strings.
+          parsedBinding: parseKeybinding(c.keybinding),
+        }));
+      if (newCmds.length === 0) return prev;
       return [...prev, ...newCmds];
     });
-  }, []);
+  }
 
-  const executeCommand = useCallback((id) => {
-    const cmd = commandsRef.current.find(c => c.id === id);
+  function executeCommand(id) {
+    const cmd = commands().find(c => c.id === id);
     if (cmd?.handler) {
       cmd.handler();
     }
     setIsOpen(false);
-  }, []);
+  }
 
-  const togglePalette = useCallback(() => {
-    setIsOpen(prev => !prev);
-  }, []);
+  const openPalette = () => setIsOpen(true);
+  const closePalette = () => setIsOpen(false);
 
-  const openPalette = useCallback(() => setIsOpen(true), []);
-  const closePalette = useCallback(() => setIsOpen(false), []);
+  // Global keyboard shortcut dispatcher
+  function handleKeyDown(e) {
+    if (e.key === 'Escape') {
+      if (isOpen()) {
+        e.preventDefault();
+        setIsOpen(false);
+      }
+      return;
+    }
 
-  // Global keyboard shortcut dispatcher — matches registered command keybindings
-  useEffect(() => {
-    const handler = (e) => {
-      // Escape always closes the palette
-      if (e.key === 'Escape') {
-        setIsOpen(prev => {
-          if (prev) {
-            e.preventDefault();
-            return false;
-          }
-          return prev;
-        });
+    for (const cmd of commands()) {
+      if (!cmd.parsedBinding) continue;
+      if (matchesKeybinding(e, cmd.parsedBinding)) {
+        e.preventDefault();
+        cmd.handler();
         return;
       }
+    }
+  }
 
-      // Try to match against all registered command keybindings
-      for (const cmd of commandsRef.current) {
-        if (!cmd.keybinding) continue;
-        const binding = parseKeybinding(cmd.keybinding);
-        if (matchesKeybinding(e, binding)) {
-          e.preventDefault();
-          cmd.handler();
-          return;
-        }
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, []);
+  onMount(() => {
+    window.addEventListener('keydown', handleKeyDown);
+  });
+
+  onCleanup(() => {
+    window.removeEventListener('keydown', handleKeyDown);
+  });
+
+  const value = {
+    isOpen,
+    commands,
+    registerCommands,
+    executeCommand,
+    openPalette,
+    closePalette,
+  };
 
   return (
-    <CommandContext.Provider value={{
-      isOpen,
-      commands,
-      registerCommand,
-      registerCommands,
-      executeCommand,
-      openPalette,
-      closePalette,
-      togglePalette,
-    }}>
-      {children}
+    <CommandContext.Provider value={value}>
+      {props.children}
     </CommandContext.Provider>
   );
 }
@@ -118,5 +109,3 @@ export function useCommands() {
   if (!ctx) throw new Error('useCommands must be used within CommandProvider');
   return ctx;
 }
-
-export default CommandContext;

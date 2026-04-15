@@ -12,7 +12,10 @@
 export function parentDir(path) {
   // Find the last separator (either / or \)
   const lastSlash = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
-  if (lastSlash <= 0) return path;
+  if (lastSlash < 0) return path; // no separator at all
+  if (lastSlash === 0) return path[0]; // root-level file on Unix: return '/'
+  // Handle Windows drive root: 'C:\foo.txt' -> 'C:\'
+  if (lastSlash === 2 && path[1] === ':') return path.substring(0, 3);
   return path.substring(0, lastSlash);
 }
 
@@ -23,6 +26,8 @@ export function parentDir(path) {
 export function joinPath(parent, name) {
   // Use backslash if the parent path contains backslashes (Windows)
   const sep = parent.includes('\\') ? '\\' : '/';
+  // Avoid double separators when parent is a root (e.g., '/' or 'C:\')
+  if (parent.endsWith('/') || parent.endsWith('\\')) return `${parent}${name}`;
   return `${parent}${sep}${name}`;
 }
 

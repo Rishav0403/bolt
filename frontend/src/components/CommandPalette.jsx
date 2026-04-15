@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { createSignal, createMemo, createEffect, Show, For } from 'solid-js';
 import { useCommands } from '../contexts/CommandContext';
+import { SearchIcon } from '../utils/icons';
 
 // Simple fuzzy match scoring
 function fuzzyMatch(query, text) {
@@ -22,9 +23,7 @@ function fuzzyMatch(query, text) {
   for (let ti = 0; ti < lowerText.length && qi < lowerQuery.length; ti++) {
     if (lowerText[ti] === lowerQuery[qi]) {
       score += 10;
-      // Bonus for consecutive matches
       if (lastMatchIdx === ti - 1) score += 5;
-      // Bonus for matching at word boundaries
       if (ti === 0 || lowerText[ti - 1] === ' ' || lowerText[ti - 1] === ':') score += 3;
       lastMatchIdx = ti;
       qi++;
@@ -40,217 +39,117 @@ function fuzzyMatch(query, text) {
 
 export default function CommandPalette() {
   const { isOpen, commands, executeCommand, closePalette } = useCommands();
-  const [query, setQuery] = useState('');
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const inputRef = useRef(null);
-  const listRef = useRef(null);
+  const [query, setQuery] = createSignal('');
+  const [selectedIndex, setSelectedIndex] = createSignal(0);
+  let inputRef;
+  let listRef;
 
   // Filter and sort commands by fuzzy match
-  const filteredCommands = useMemo(() => {
-    return commands
+  const filteredCommands = createMemo(() => {
+    return commands()
       .map(cmd => ({
         ...cmd,
-        ...fuzzyMatch(query, cmd.label),
+        ...fuzzyMatch(query(), cmd.label),
       }))
       .filter(cmd => cmd.match)
       .sort((a, b) => b.score - a.score);
-  }, [commands, query]);
+  });
 
-  // Reset state when opened
-  useEffect(() => {
-    if (isOpen) {
+  // Reset state when opened, focus input
+  createEffect(() => {
+    if (isOpen()) {
       setQuery('');
       setSelectedIndex(0);
-      setTimeout(() => inputRef.current?.focus(), 50);
+      setTimeout(() => inputRef?.focus(), 50);
     }
-  }, [isOpen]);
+  });
 
   // Keep selected index in bounds
-  useEffect(() => {
-    if (selectedIndex >= filteredCommands.length) {
-      setSelectedIndex(Math.max(0, filteredCommands.length - 1));
+  createEffect(() => {
+    const len = filteredCommands().length;
+    if (selectedIndex() >= len) {
+      setSelectedIndex(Math.max(0, len - 1));
     }
-  }, [filteredCommands.length, selectedIndex]);
+  });
 
   // Scroll selected item into view
-  useEffect(() => {
-    if (listRef.current) {
-      const selected = listRef.current.children[selectedIndex];
+  createEffect(() => {
+    const idx = selectedIndex();
+    if (listRef) {
+      const selected = listRef.children[idx];
       if (selected) {
         selected.scrollIntoView({ block: 'nearest' });
       }
     }
-  }, [selectedIndex]);
+  });
 
-  const handleKeyDown = useCallback((e) => {
+  function handleKeyDown(e) {
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault();
-        setSelectedIndex(prev => Math.min(prev + 1, filteredCommands.length - 1));
+        setSelectedIndex(prev => Math.min(prev + 1, filteredCommands().length - 1));
         break;
       case 'ArrowUp':
         e.preventDefault();
         setSelectedIndex(prev => Math.max(prev - 1, 0));
         break;
-      case 'Enter':
+      case 'Enter': {
         e.preventDefault();
-        if (filteredCommands[selectedIndex]) {
-          executeCommand(filteredCommands[selectedIndex].id);
-        }
+        const item = filteredCommands()[selectedIndex()];
+        if (item) executeCommand(item.id);
         break;
+      }
       case 'Escape':
         e.preventDefault();
         closePalette();
         break;
     }
-  }, [filteredCommands, selectedIndex, executeCommand, closePalette]);
-
-  if (!isOpen) return null;
+  }
 
   return (
-    <>
-      <div className="command-palette-overlay" onClick={closePalette} />
-      <div className="command-palette">
-        <div className="command-palette-input-wrapper">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="command-palette-search-icon">
-            <circle cx="11" cy="11" r="7" />
-            <path d="M16 16L21 21" />
-          </svg>
+    <Show when={isOpen()}>
+      <div class="command-palette-overlay" onClick={closePalette} />
+      <div class="command-palette">
+        <div class="command-palette-input-wrapper">
+          <SearchIcon size={14} strokeWidth={2} class="command-palette-search-icon" />
           <input
             ref={inputRef}
-            className="command-palette-input"
+            class="command-palette-input"
             type="text"
             placeholder="Type a command..."
-            value={query}
-            onChange={(e) => {
+            value={query()}
+            onInput={(e) => {
               setQuery(e.target.value);
               setSelectedIndex(0);
             }}
             onKeyDown={handleKeyDown}
           />
         </div>
-        <div className="command-palette-list" ref={listRef}>
-          {filteredCommands.map((cmd, idx) => (
-            <div
-              key={cmd.id}
-              className={`command-palette-item ${idx === selectedIndex ? 'selected' : ''}`}
-              onClick={() => executeCommand(cmd.id)}
-              onMouseEnter={() => setSelectedIndex(idx)}
-            >
-              <span className="command-palette-item-label">{cmd.label}</span>
-              {cmd.keybinding && (
-                <span className="command-palette-item-keybinding">
-                  {cmd.keybinding}
-                </span>
-              )}
-            </div>
-          ))}
-          {filteredCommands.length === 0 && (
-            <div className="command-palette-empty">
+        <div class="command-palette-list" ref={listRef}>
+          <For each={filteredCommands()}>
+            {(cmd, idx) => (
+              <div
+                class="command-palette-item"
+                classList={{ selected: idx() === selectedIndex() }}
+                onClick={() => executeCommand(cmd.id)}
+                onMouseEnter={() => setSelectedIndex(idx())}
+              >
+                <span class="command-palette-item-label">{cmd.label}</span>
+                <Show when={cmd.keybinding}>
+                  <span class="command-palette-item-keybinding">
+                    {cmd.keybinding}
+                  </span>
+                </Show>
+              </div>
+            )}
+          </For>
+          <Show when={filteredCommands().length === 0}>
+            <div class="command-palette-empty">
               No matching commands
             </div>
-          )}
+          </Show>
         </div>
       </div>
-
-      <style>{`
-        .command-palette-overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          z-index: 9998;
-        }
-
-        .command-palette {
-          position: fixed;
-          top: 0;
-          left: 50%;
-          transform: translateX(-50%);
-          width: 600px;
-          max-width: 90vw;
-          background: var(--bg-tertiary);
-          border: 1px solid var(--border);
-          border-top: none;
-          border-radius: 0 0 6px 6px;
-          box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
-          z-index: 9999;
-          overflow: hidden;
-        }
-
-        .command-palette-input-wrapper {
-          display: flex;
-          align-items: center;
-          padding: 8px 12px;
-          gap: 8px;
-          border-bottom: 1px solid var(--border);
-        }
-
-        .command-palette-search-icon {
-          flex-shrink: 0;
-          color: var(--text-muted);
-        }
-
-        .command-palette-input {
-          flex: 1;
-          background: none;
-          border: none;
-          outline: none;
-          color: var(--text-primary);
-          font-family: var(--font-family);
-          font-size: 14px;
-        }
-
-        .command-palette-input::placeholder {
-          color: var(--text-muted);
-        }
-
-        .command-palette-list {
-          max-height: 300px;
-          overflow-y: auto;
-          padding: 4px 0;
-        }
-
-        .command-palette-item {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 6px 16px;
-          cursor: pointer;
-          font-size: 13px;
-          color: var(--text-primary);
-        }
-
-        .command-palette-item:hover,
-        .command-palette-item.selected {
-          background: var(--accent);
-          color: white;
-        }
-
-        .command-palette-item.selected .command-palette-item-keybinding {
-          color: rgba(255, 255, 255, 0.7);
-        }
-
-        .command-palette-item-label {
-          flex: 1;
-        }
-
-        .command-palette-item-keybinding {
-          font-size: 11px;
-          color: var(--text-muted);
-          font-family: var(--font-mono);
-          margin-left: 16px;
-          flex-shrink: 0;
-        }
-
-        .command-palette-empty {
-          padding: 16px;
-          text-align: center;
-          color: var(--text-muted);
-          font-size: 13px;
-        }
-      `}</style>
-    </>
+    </Show>
   );
 }
