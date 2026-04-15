@@ -1,7 +1,7 @@
 import { createEffect, onMount, onCleanup, untrack } from 'solid-js';
 import * as monaco from 'monaco-editor';
 import { useEditor } from '../contexts/EditorContext';
-import { getWailsFs } from '../utils/wails';
+import { getWailsFs, getWailsTextBuffer } from '../utils/wails';
 
 // Configure Monaco workers via import.meta.url (Vite handles bundling)
 self.MonacoEnvironment = {
@@ -45,6 +45,10 @@ export default function EditorPane() {
   let debounceTimer = null;
   // Track which tab the editor is currently showing to avoid cross-tab content corruption
   let currentTabId = null;
+  // Content snapshot taken before each onDidChangeModelContent fires.
+  // rangeOffset in Monaco change events is relative to the pre-change content,
+  // so we need this to correctly convert UTF-16 char offsets → UTF-8 byte offsets.
+  let preChangeContent = '';
 
   function createOrSwitchModel(tabId, tabPath, tabLanguage, originalContent) {
     if (!editorInstance || !tabId) return;
@@ -57,6 +61,12 @@ export default function EditorPane() {
     if (!model) {
       const content = getTabContent(tabId) ?? originalContent ?? '';
       model = monaco.editor.createModel(content, tabLanguage, uri);
+      // Seed the Go piece table and the pre-change snapshot with the same content.
+      preChangeContent = content;
+      getWailsTextBuffer()?.OpenBuffer(tabPath, content);
+    } else {
+      // Switching back to an already-open model — resync the snapshot.
+      preChangeContent = model.getValue();
     }
 
     editorInstance.setModel(model);
@@ -98,6 +108,8 @@ export default function EditorPane() {
     const uri = monaco.Uri.parse(`file://${tab.path}`);
     const model = monaco.editor.getModel(uri);
     if (model) model.dispose();
+    // Free the Go-side piece table for this file.
+    getWailsTextBuffer()?.CloseBuffer(tab.path);
     currentTabId = null;
     closeTab(tab.id);
   }
@@ -121,9 +133,9 @@ export default function EditorPane() {
       automaticLayout: true,
       tabSize: 4,
       wordWrap: 'off',
-      cursorBlinking: 'smooth',
-      cursorSmoothCaretAnimation: 'on',
-      smoothScrolling: true,
+      cursorBlinking: 'blink',
+      cursorSmoothCaretAnimation: 'off',
+      smoothScrolling: false,
       padding: { top: 8 },
       bracketPairColorization: { enabled: true },
       guides: {
@@ -133,13 +145,33 @@ export default function EditorPane() {
     });
 
     // Listen for content changes -- guard against cross-tab corruption during model switches
-    editorInstance.onDidChangeModelContent(() => {
+    editorInstance.onDidChangeModelContent((e) => {
       if (!currentTabId) return;
       const tab = activeTab();
       if (!tab || tab.id !== currentTabId) return;
 
       const value = editorInstance.getValue();
       updateTabContent(tab.id, value);
+
+      // Mirror each atomic change into the Go piece table.
+      // Monaco's rangeOffset/rangeLength are UTF-16 code-unit counts relative
+      // to the pre-change content; convert to UTF-8 byte offsets for Go.
+      const tb = getWailsTextBuffer();
+      if (tb) {
+        const encoder = new TextEncoder();
+        const before = preChangeContent; // pre-change snapshot, valid for all changes in this event
+        for (const change of e.changes) {
+          const { rangeOffset, rangeLength, text } = change;
+          const byteOffset = encoder.encode(before.slice(0, rangeOffset)).length;
+          if (rangeLength > 0) {
+            const byteLen = encoder.encode(before.slice(rangeOffset, rangeOffset + rangeLength)).length;
+            tb.Delete(tab.path, byteOffset, byteLen);
+          }
+          if (text.length > 0) tb.Insert(tab.path, byteOffset, text);
+        }
+      }
+      // Advance the snapshot for the next event.
+      preChangeContent = value;
 
       if (debounceTimer) clearTimeout(debounceTimer);
       const id = tab.id;

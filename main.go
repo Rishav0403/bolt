@@ -5,6 +5,7 @@ import (
 
 	"bolt/backend/fs"
 	"bolt/backend/settings"
+	"bolt/backend/textbuffer"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -17,13 +18,14 @@ var assets embed.FS
 func main() {
 	fsService := fs.NewService()
 	settingsService := settings.NewService()
+	textBufferService := textbuffer.NewService()
 	app := NewApp(fsService)
 
 	err := wails.Run(&options.App{
-		Title:    "Bolt",
-		Width:    1280,
-		Height:   800,
-		MinWidth: 800,
+		Title:     "Bolt",
+		Width:     1280,
+		Height:    800,
+		MinWidth:  800,
 		MinHeight: 600,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
@@ -35,6 +37,7 @@ func main() {
 			app,
 			fsService,
 			settingsService,
+			textBufferService,
 		},
 	})
 
