@@ -1,9 +1,11 @@
 import { Show } from 'solid-js';
 import { useEditor } from '../contexts/EditorContext';
+import { useTerminal } from '../contexts/TerminalContext';
 import { GitBranchIcon, BoltIcon } from '../utils/icons';
 
 export default function StatusBar() {
   const { activeTab } = useEditor();
+  const { terminals, togglePanel } = useTerminal();
 
   return (
     <div class="status-bar">
@@ -14,6 +16,15 @@ export default function StatusBar() {
         </span>
       </div>
       <div class="status-bar-right">
+        <Show when={terminals.length > 0}>
+          <span
+            class="status-bar-item clickable"
+            title="Toggle Terminal"
+            onClick={() => togglePanel()}
+          >
+            {'\u{2588}'} {terminals.length} terminal{terminals.length !== 1 ? 's' : ''}
+          </span>
+        </Show>
         <Show when={activeTab()}>
           <span class="status-bar-item">Ln 1, Col 1</span>
           <span class="status-bar-item">{activeTab().language || 'Plain Text'}</span>
