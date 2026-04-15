@@ -1,18 +1,23 @@
 import { createSignal, onMount } from 'solid-js';
 import { EditorProvider } from './contexts/EditorContext';
 import { CommandProvider, useCommands } from './contexts/CommandContext';
+import { TerminalProvider, useTerminal } from './contexts/TerminalContext';
+import { SettingsProvider } from './contexts/SettingsContext';
 import ActivityBar from './components/ActivityBar';
 import Sidebar from './components/Sidebar';
 import TabBar from './components/TabBar';
+import Breadcrumbs from './components/Breadcrumbs';
 import EditorPane from './components/EditorPane';
 import StatusBar from './components/StatusBar';
 import CommandPalette from './components/CommandPalette';
+import TerminalPanel from './components/TerminalPanel';
 import { getWailsFs } from './utils/wails';
 
 function AppInner() {
   const [activeView, setActiveView] = createSignal('explorer');
   const [rootPath, setRootPath] = createSignal('');
   const { registerCommands, openPalette } = useCommands();
+  const { togglePanel, createTerminal: newTerm } = useTerminal();
 
   // Register built-in commands once on mount
   onMount(() => {
@@ -83,31 +88,48 @@ function AppInner() {
         keybinding: 'Ctrl+W',
         handler: () => EditorPane.closeActiveTab?.(),
       },
+      {
+        id: 'toggleTerminal',
+        label: 'Toggle Terminal',
+        keybinding: 'Ctrl+`',
+        handler: () => togglePanel(),
+      },
+      {
+        id: 'newTerminal',
+        label: 'New Terminal',
+        handler: () => newTerm(),
+      },
     ]);
   });
 
   return (
-    <div class="app-shell">
-      <div class="app-main">
-        <ActivityBar activeView={activeView} onViewChange={setActiveView} />
-        <Sidebar activeView={activeView} rootPath={rootPath} />
-        <div class="editor-area">
-          <TabBar />
-          <EditorPane />
+    <SettingsProvider rootPath={rootPath}>
+      <div class="app-shell">
+        <div class="app-main">
+          <ActivityBar activeView={activeView} onViewChange={setActiveView} />
+          <Sidebar activeView={activeView} rootPath={rootPath} />
+          <div class="editor-area">
+            <TabBar />
+            <Breadcrumbs />
+            <EditorPane />
+          </div>
         </div>
+        <TerminalPanel />
+        <StatusBar />
+        <CommandPalette />
       </div>
-      <StatusBar />
-      <CommandPalette />
-    </div>
+    </SettingsProvider>
   );
 }
 
 export default function App() {
   return (
     <EditorProvider>
-      <CommandProvider>
-        <AppInner />
-      </CommandProvider>
+      <TerminalProvider>
+        <CommandProvider>
+          <AppInner />
+        </CommandProvider>
+      </TerminalProvider>
     </EditorProvider>
   );
 }

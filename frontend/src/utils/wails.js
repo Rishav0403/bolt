@@ -20,3 +20,28 @@ export function getWailsFs() {
 export function getWailsTextBuffer() {
   return window.go?.textbuffer?.Service ?? null;
 }
+
+/**
+ * Returns the Wails Terminal service proxy, or null if not in a Wails environment.
+ * Methods: CreateTerminal, WriteTerminal, ResizeTerminal, CloseTerminal, ListTerminals.
+ */
+export function getWailsTerminal() {
+  return window.go?.terminal?.Service ?? null;
+}
+
+/**
+ * Returns the Wails Search service proxy, or null if not in a Wails environment.
+ * Methods: Search, SearchStream, CancelSearch, Replace.
+ */
+export function getWailsSearch() {
+  return window.go?.search?.Service ?? null;
+}
+
+/**
+ * Returns the Wails Settings service proxy, or null if not in a Wails environment.
+ * Methods: GetSettings, UpdateSetting, UpdateAllSettings, GetMergedSettings,
+ *          SaveWorkspaceSettings, LoadWorkspaceSettings, GetSettingsSchema.
+ */
+export function getWailsSettings() {
+  return window.go?.settings?.Service ?? null;
+}

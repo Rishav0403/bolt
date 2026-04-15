@@ -1,0 +1,157 @@
+/* Settings Editor styles */
+.settings-editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.settings-scope-tabs {
+  display: flex;
+  border-bottom: 1px solid #333;
+  flex-shrink: 0;
+}
+
+.settings-scope-tabs button {
+  flex: 1;
+  padding: 8px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #999;
+  font-size: 12px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.settings-scope-tabs button:hover {
+  color: #ccc;
+}
+
+.settings-scope-tabs button.active {
+  color: #fff;
+  border-bottom-color: #007acc;
+}
+
+.settings-search {
+  padding: 8px;
+  flex-shrink: 0;
+}
+
+.settings-search input {
+  width: 100%;
+  background: #3c3c3c;
+  border: 1px solid #555;
+  border-radius: 3px;
+  color: #ccc;
+  font-size: 13px;
+  padding: 6px 10px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.settings-search input:focus {
+  border-color: #007acc;
+}
+
+.settings-search input::placeholder {
+  color: #777;
+}
+
+.settings-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 8px 8px;
+}
+
+.settings-item {
+  padding: 12px 0;
+  border-bottom: 1px solid #2a2a2a;
+}
+
+.settings-item-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.settings-item-key {
+  font-size: 13px;
+  font-weight: 600;
+  color: #4fc1ff;
+}
+
+.settings-item-type {
+  font-size: 11px;
+  color: #777;
+  background: #2a2a2a;
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
+.settings-item-description {
+  font-size: 12px;
+  color: #999;
+  margin: 0 0 8px 0;
+  line-height: 1.4;
+}
+
+.settings-item-control {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.settings-item-control input[type="text"],
+.settings-item-control input[type="number"] {
+  background: #3c3c3c;
+  border: 1px solid #555;
+  border-radius: 3px;
+  color: #ccc;
+  font-size: 13px;
+  padding: 4px 8px;
+  outline: none;
+  max-width: 300px;
+}
+
+.settings-item-control input[type="text"]:focus,
+.settings-item-control input[type="number"]:focus {
+  border-color: #007acc;
+}
+
+.settings-item-control select {
+  background: #3c3c3c;
+  border: 1px solid #555;
+  border-radius: 3px;
+  color: #ccc;
+  font-size: 13px;
+  padding: 4px 8px;
+  outline: none;
+  max-width: 300px;
+}
+
+.settings-item-control select:focus {
+  border-color: #007acc;
+}
+
+.settings-item-control input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #007acc;
+  cursor: pointer;
+}
+
+.settings-item-default {
+  font-size: 11px;
+  color: #666;
+  margin-top: 4px;
+}
+
+.settings-empty {
+  padding: 20px;
+  text-align: center;
+  color: #777;
+  font-size: 13px;
+}
