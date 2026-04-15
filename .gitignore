@@ -1,2 +1,12 @@
+build/bin
 node_modules
-.env
+frontend/dist
+frontend/wailsjs
+frontend/package-lock.json
+frontend/package.json.md5
+*.exe
+*.dll
+*.so
+*.dylib
+.DS_Store
+Thumbs.db
