@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"runtime"
 	"sync"
-	"syscall"
 
 	"github.com/creack/pty"
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
@@ -27,6 +26,7 @@ type session struct {
 	cmd    *exec.Cmd
 	title  string
 	cancel context.CancelFunc
+	closed bool // true once CloseTerminal has been called
 }
 
 // Service manages multiple terminal instances (PTY sessions).
@@ -91,11 +91,11 @@ func (s *Service) CreateTerminal(id string) error {
 	shell := detectShell()
 	cmd := exec.Command(shell)
 	cmd.Env = append(os.Environ(), "TERM=xterm-256color")
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	setProcAttr(cmd)
 
 	ptmx, err := pty.Start(cmd)
 	if err != nil {
-		// Retry without Setpgid in case the environment does not permit it
+		// Retry without platform-specific proc attrs in case the environment does not permit it
 		cmd = exec.Command(shell)
 		cmd.Env = append(os.Environ(), "TERM=xterm-256color")
 		ptmx, err = pty.Start(cmd)
@@ -141,6 +141,14 @@ func (s *Service) readLoop(ctx context.Context, id string, sess *session) {
 			}
 		}
 		if err != nil {
+			// Check if this session was already cleaned up by CloseTerminal
+			s.mu.Lock()
+			if sess.closed {
+				s.mu.Unlock()
+				return
+			}
+			s.mu.Unlock()
+
 			// PTY closed or EOF — wait for process exit and emit exit event
 			exitCode := 0
 			if waitErr := sess.cmd.Wait(); waitErr != nil {
@@ -207,22 +215,19 @@ func (s *Service) CloseTerminal(id string) error {
 		s.mu.Unlock()
 		return fmt.Errorf("terminal not found: %s", id)
 	}
+	sess.closed = true
 	delete(s.sessions, id)
 	s.mu.Unlock()
 
-	// Send SIGHUP to the process group (negative PID).
-	// Falls back to signalling just the process if process group kill fails.
-	if sess.cmd.Process != nil {
-		if err := syscall.Kill(-sess.cmd.Process.Pid, syscall.SIGHUP); err != nil {
-			_ = sess.cmd.Process.Signal(syscall.SIGHUP)
-		}
-	}
+	// Cancel the read goroutine context first so it exits cleanly
+	// rather than seeing a pty read error and attempting cleanup.
+	sess.cancel()
+
+	// Signal the process (group) to terminate
+	signalProcess(sess.cmd)
 
 	// Close the PTY file descriptor
 	_ = sess.pty.Close()
-
-	// Cancel the read goroutine context
-	sess.cancel()
 
 	return nil
 }

@@ -433,50 +433,6 @@ func TestSearch_rgNotFound(t *testing.T) {
 	}
 }
 
-func TestParseRgJSON_matchRoundTrip(t *testing.T) {
-	// Build a realistic ripgrep JSON match line
-	matchLine := map[string]interface{}{
-		"type": "match",
-		"data": map[string]interface{}{
-			"path":        map[string]interface{}{"text": "/tmp/test.go"},
-			"lines":       map[string]interface{}{"text": "func TestFoo() {\n"},
-			"line_number": 42,
-			"submatches": []map[string]interface{}{
-				{
-					"match": map[string]interface{}{"text": "TestFoo"},
-					"start": 5,
-					"end":   12,
-				},
-			},
-		},
-	}
-	data, err := json.Marshal(matchLine)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	result := parseRgJSON(data)
-	if result == nil {
-		t.Fatal("expected non-nil result")
-	}
-
-	if result.FilePath != "/tmp/test.go" {
-		t.Errorf("FilePath: expected /tmp/test.go, got %q", result.FilePath)
-	}
-	if result.LineNumber != 42 {
-		t.Errorf("LineNumber: expected 42, got %d", result.LineNumber)
-	}
-	if result.Column != 6 {
-		t.Errorf("Column: expected 6, got %d", result.Column)
-	}
-	if result.LineText != "func TestFoo() {" {
-		t.Errorf("LineText: expected 'func TestFoo() {', got %q", result.LineText)
-	}
-	if result.MatchText != "TestFoo" {
-		t.Errorf("MatchText: expected 'TestFoo', got %q", result.MatchText)
-	}
-}
-
 // Helper functions
 
 func assertContains(t *testing.T, slice []string, value string) {

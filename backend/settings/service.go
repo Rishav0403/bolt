@@ -94,99 +94,84 @@ func (s *Service) GetSettings() Settings {
 	return s.settings
 }
 
+// asString asserts value is a string and returns it, or an error with the setting key.
+func asString(key string, value interface{}) (string, error) {
+	v, ok := value.(string)
+	if !ok {
+		return "", fmt.Errorf("invalid type for %q: expected string", key)
+	}
+	return v, nil
+}
+
+// asFloat64 asserts value is a float64 and returns it as int, or an error with the setting key.
+func asInt(key string, value interface{}) (int, error) {
+	v, ok := value.(float64)
+	if !ok {
+		return 0, fmt.Errorf("invalid type for %q: expected number", key)
+	}
+	return int(v), nil
+}
+
+// asBool asserts value is a bool and returns it, or an error with the setting key.
+func asBool(key string, value interface{}) (bool, error) {
+	v, ok := value.(bool)
+	if !ok {
+		return false, fmt.Errorf("invalid type for %q: expected bool", key)
+	}
+	return v, nil
+}
+
+// asStringSlice asserts value is a []interface{} of strings and returns []string, or an error.
+func asStringSlice(key string, value interface{}) ([]string, error) {
+	raw, ok := value.([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("invalid type for %q: expected array", key)
+	}
+	result := make([]string, 0, len(raw))
+	for _, item := range raw {
+		str, ok := item.(string)
+		if !ok {
+			return nil, fmt.Errorf("invalid type for %q element: expected string", key)
+		}
+		result = append(result, str)
+	}
+	return result, nil
+}
+
 // UpdateSetting updates a single setting by key and persists to disk.
 // Returns an error for unknown keys or values of the wrong type.
+// On type error the existing value is preserved (not overwritten with a zero value).
 func (s *Service) UpdateSetting(key string, value interface{}) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	switch key {
 	case "theme":
-		v, ok := value.(string)
-		if !ok {
-			return fmt.Errorf("invalid type for %q: expected string", key)
-		}
-		s.settings.Theme = v
+		if v, err := asString(key, value); err != nil { return err } else { s.settings.Theme = v }
 	case "fontSize":
-		v, ok := value.(float64)
-		if !ok {
-			return fmt.Errorf("invalid type for %q: expected number", key)
-		}
-		s.settings.FontSize = int(v)
+		if v, err := asInt(key, value); err != nil { return err } else { s.settings.FontSize = v }
 	case "fontFamily":
-		v, ok := value.(string)
-		if !ok {
-			return fmt.Errorf("invalid type for %q: expected string", key)
-		}
-		s.settings.FontFamily = v
+		if v, err := asString(key, value); err != nil { return err } else { s.settings.FontFamily = v }
 	case "tabSize":
-		v, ok := value.(float64)
-		if !ok {
-			return fmt.Errorf("invalid type for %q: expected number", key)
-		}
-		s.settings.TabSize = int(v)
+		if v, err := asInt(key, value); err != nil { return err } else { s.settings.TabSize = v }
 	case "wordWrap":
-		v, ok := value.(string)
-		if !ok {
-			return fmt.Errorf("invalid type for %q: expected string", key)
-		}
-		s.settings.WordWrap = v
+		if v, err := asString(key, value); err != nil { return err } else { s.settings.WordWrap = v }
 	case "minimap":
-		v, ok := value.(bool)
-		if !ok {
-			return fmt.Errorf("invalid type for %q: expected bool", key)
-		}
-		s.settings.Minimap = v
+		if v, err := asBool(key, value); err != nil { return err } else { s.settings.Minimap = v }
 	case "terminalShell":
-		v, ok := value.(string)
-		if !ok {
-			return fmt.Errorf("invalid type for %q: expected string", key)
-		}
-		s.settings.TerminalShell = v
+		if v, err := asString(key, value); err != nil { return err } else { s.settings.TerminalShell = v }
 	case "terminalFontSize":
-		v, ok := value.(float64)
-		if !ok {
-			return fmt.Errorf("invalid type for %q: expected number", key)
-		}
-		s.settings.TerminalFontSize = int(v)
+		if v, err := asInt(key, value); err != nil { return err } else { s.settings.TerminalFontSize = v }
 	case "terminalFontFamily":
-		v, ok := value.(string)
-		if !ok {
-			return fmt.Errorf("invalid type for %q: expected string", key)
-		}
-		s.settings.TerminalFontFamily = v
+		if v, err := asString(key, value); err != nil { return err } else { s.settings.TerminalFontFamily = v }
 	case "searchExcludeGlobs":
-		raw, ok := value.([]interface{})
-		if !ok {
-			return fmt.Errorf("invalid type for %q: expected array", key)
-		}
-		globs := make([]string, 0, len(raw))
-		for _, item := range raw {
-			str, ok := item.(string)
-			if !ok {
-				return fmt.Errorf("invalid type for %q element: expected string", key)
-			}
-			globs = append(globs, str)
-		}
-		s.settings.SearchExcludeGlobs = globs
+		if v, err := asStringSlice(key, value); err != nil { return err } else { s.settings.SearchExcludeGlobs = v }
 	case "breadcrumbsEnabled":
-		v, ok := value.(bool)
-		if !ok {
-			return fmt.Errorf("invalid type for %q: expected bool", key)
-		}
-		s.settings.BreadcrumbsEnabled = v
+		if v, err := asBool(key, value); err != nil { return err } else { s.settings.BreadcrumbsEnabled = v }
 	case "stickyScrollEnabled":
-		v, ok := value.(bool)
-		if !ok {
-			return fmt.Errorf("invalid type for %q: expected bool", key)
-		}
-		s.settings.StickyScrollEnabled = v
+		if v, err := asBool(key, value); err != nil { return err } else { s.settings.StickyScrollEnabled = v }
 	case "stickyScrollMaxLines":
-		v, ok := value.(float64)
-		if !ok {
-			return fmt.Errorf("invalid type for %q: expected number", key)
-		}
-		s.settings.StickyScrollMaxLines = int(v)
+		if v, err := asInt(key, value); err != nil { return err } else { s.settings.StickyScrollMaxLines = v }
 	default:
 		return fmt.Errorf("unknown setting key: %s", key)
 	}
@@ -261,7 +246,9 @@ func (s *Service) GetMergedSettings(rootPath string) Settings {
 
 	// Unmarshal workspace settings ON TOP of user settings.
 	// Only fields present in the JSON will be overwritten.
-	json.Unmarshal(data, &merged)
+	if err := json.Unmarshal(data, &merged); err != nil {
+		log.Printf("warning: failed to parse workspace settings at %s: %v — using user settings", wsPath, err)
+	}
 	return merged
 }
 

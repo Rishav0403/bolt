@@ -3,8 +3,9 @@ import { getWailsSettings } from '../utils/wails';
 
 const SettingsContext = createContext();
 
-// Hardcoded defaults matching backend/settings/service.go DefaultSettings()
-const DEFAULT_SETTINGS = {
+// Fallback defaults used in demo mode (no backend) or before schema loads.
+// When the backend is available, these are replaced with values from GetSettingsSchema().
+const FALLBACK_DEFAULTS = {
   theme: 'vs-dark',
   fontSize: 14,
   fontFamily: "'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace",
@@ -20,9 +21,22 @@ const DEFAULT_SETTINGS = {
   stickyScrollMaxLines: 5,
 };
 
+/**
+ * Derive a defaults object from the schema descriptors returned by the backend.
+ * Each descriptor contains a `default` field — we build a key→value map from it.
+ */
+function defaultsFromSchema(schemaDescriptors) {
+  const defaults = {};
+  for (const d of schemaDescriptors) {
+    defaults[d.key] = d.default;
+  }
+  return defaults;
+}
+
 export function SettingsProvider(props) {
-  const [settings, setSettings] = createSignal({ ...DEFAULT_SETTINGS });
+  const [settings, setSettings] = createSignal({ ...FALLBACK_DEFAULTS });
   const [schema, setSchema] = createSignal([]);
+  const [defaults, setDefaults] = createSignal({ ...FALLBACK_DEFAULTS });
 
   // Fetch settings from backend when rootPath changes
   createEffect(() => {
@@ -34,10 +48,14 @@ export function SettingsProvider(props) {
       }).catch(err => console.error('Failed to load settings:', err));
 
       svc.GetSettingsSchema().then(s => {
-        if (s) setSchema(s);
+        if (s) {
+          setSchema(s);
+          // Derive defaults from the backend schema — single source of truth.
+          setDefaults(defaultsFromSchema(s));
+        }
       }).catch(err => console.error('Failed to load schema:', err));
     }
-    // In demo mode, use defaults (already set)
+    // In demo mode, use fallback defaults (already set)
   });
 
   async function updateSetting(key, value) {
@@ -79,7 +97,7 @@ export function SettingsProvider(props) {
     updateSetting,
     saveWorkspaceSettings,
     rootPath: rootPathAccessor,
-    DEFAULT_SETTINGS,
+    defaults,
   };
 
   return (

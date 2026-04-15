@@ -2,6 +2,7 @@ package search
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -186,7 +187,7 @@ func (s *Service) Search(opts SearchOptions) ([]SearchResult, error) {
 	}
 
 	var results []SearchResult
-	scanner := bufio.NewScanner(strings.NewReader(string(output)))
+	scanner := bufio.NewScanner(bytes.NewReader(output))
 	for scanner.Scan() {
 		result := parseRgJSON(scanner.Bytes())
 		if result != nil {
@@ -198,6 +199,13 @@ func (s *Service) Search(opts SearchOptions) ([]SearchResult, error) {
 	}
 
 	return results, nil
+}
+
+// clearActiveCmd resets the activeCmd under the mutex lock.
+func (s *Service) clearActiveCmd() {
+	s.mu.Lock()
+	s.activeCmd = nil
+	s.mu.Unlock()
 }
 
 // SearchStream performs a streaming search, emitting results as they arrive via Wails events.
@@ -223,16 +231,12 @@ func (s *Service) SearchStream(opts SearchOptions) error {
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		s.mu.Lock()
-		s.activeCmd = nil
-		s.mu.Unlock()
+		s.clearActiveCmd()
 		return fmt.Errorf("failed to create stdout pipe: %w", err)
 	}
 
 	if err := cmd.Start(); err != nil {
-		s.mu.Lock()
-		s.activeCmd = nil
-		s.mu.Unlock()
+		s.clearActiveCmd()
 		return fmt.Errorf("failed to start ripgrep: %w", err)
 	}
 
@@ -254,23 +258,19 @@ func (s *Service) SearchStream(opts SearchOptions) error {
 	// Wait for the process to finish
 	waitErr := cmd.Wait()
 
-	s.mu.Lock()
-	s.activeCmd = nil
-	s.mu.Unlock()
+	s.clearActiveCmd()
 
 	if s.ctx != nil {
 		wailsRuntime.EventsEmit(s.ctx, "search:done", nil)
 	}
 
-	// rg exits with code 1 when no matches found — not an error
+	// rg exits with code 1 when no matches found, or -1 when killed (e.g. via CancelSearch)
+	// — these are not errors.
 	if waitErr != nil {
-		if exitErr, ok := waitErr.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
+		if exitErr, ok := waitErr.(*exec.ExitError); ok && (exitErr.ExitCode() == 1 || exitErr.ExitCode() == -1) {
 			return nil
 		}
-		// If the process was killed (e.g. via CancelSearch), don't report as error
-		if exitErr, ok := waitErr.(*exec.ExitError); ok && exitErr.ExitCode() == -1 {
-			return nil
-		}
+		return waitErr
 	}
 
 	return nil
@@ -293,6 +293,29 @@ func (s *Service) CancelSearch() error {
 	return nil
 }
 
+// buildReplaceRegex constructs a compiled regexp that mirrors the search modifiers
+// (isRegex, caseSensitive, wholeWord) so that Replace operates on exactly the
+// same match spans as Search.
+func buildReplaceRegex(opts ReplaceOptions) (*regexp.Regexp, error) {
+	var pattern string
+	if opts.IsRegex {
+		pattern = opts.Query
+	} else {
+		pattern = regexp.QuoteMeta(opts.Query)
+	}
+
+	if opts.WholeWord {
+		pattern = `\b` + pattern + `\b`
+	}
+
+	var flags string
+	if !opts.CaseSensitive {
+		flags = "(?i)"
+	}
+
+	return regexp.Compile(flags + pattern)
+}
+
 // Replace finds all matches using Search and performs text replacement in the matching files.
 // Returns the number of files modified.
 func (s *Service) Replace(opts ReplaceOptions) (int, error) {
@@ -307,6 +330,11 @@ func (s *Service) Replace(opts ReplaceOptions) (int, error) {
 		fileSet[r.FilePath] = true
 	}
 
+	re, err := buildReplaceRegex(opts)
+	if err != nil {
+		return 0, fmt.Errorf("invalid search pattern %q: %w", opts.Query, err)
+	}
+
 	modifiedCount := 0
 	for filePath := range fileSet {
 		content, err := os.ReadFile(filePath)
@@ -315,31 +343,7 @@ func (s *Service) Replace(opts ReplaceOptions) (int, error) {
 		}
 
 		original := string(content)
-		var replaced string
-
-		if opts.IsRegex {
-			var re *regexp.Regexp
-			if opts.CaseSensitive {
-				re, err = regexp.Compile(opts.Query)
-			} else {
-				re, err = regexp.Compile("(?i)" + opts.Query)
-			}
-			if err != nil {
-				return modifiedCount, fmt.Errorf("invalid regex %q: %w", opts.Query, err)
-			}
-			replaced = re.ReplaceAllString(original, opts.ReplaceText)
-		} else {
-			if opts.CaseSensitive {
-				replaced = strings.ReplaceAll(original, opts.Query, opts.ReplaceText)
-			} else {
-				// Case-insensitive string replacement
-				re, err := regexp.Compile("(?i)" + regexp.QuoteMeta(opts.Query))
-				if err != nil {
-					return modifiedCount, fmt.Errorf("failed to compile pattern: %w", err)
-				}
-				replaced = re.ReplaceAllString(original, opts.ReplaceText)
-			}
-		}
+		replaced := re.ReplaceAllString(original, opts.ReplaceText)
 
 		if replaced != original {
 			if err := os.WriteFile(filePath, []byte(replaced), 0644); err != nil {

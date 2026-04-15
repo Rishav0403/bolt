@@ -1,9 +1,15 @@
 import { createSignal, createEffect, Show, For, onCleanup } from 'solid-js';
 import { useEditor } from '../contexts/EditorContext';
-import { getWailsSearch, getWailsFs, isWailsEnv } from '../utils/wails';
-import { SearchIcon } from '../utils/icons';
+import { getWailsSearch, getWailsFs } from '../utils/wails';
 import { DEMO_CONTENTS } from '../utils/demoData';
 import { baseName } from '../utils/pathUtils';
+
+/**
+ * Parse a comma-separated glob string into an array of trimmed, non-empty strings.
+ */
+function parseGlobs(str) {
+  return str.split(',').map(s => s.trim()).filter(Boolean);
+}
 
 /**
  * Escape HTML special characters so raw text can be safely used with innerHTML.
@@ -141,20 +147,28 @@ export default function SearchPanel(props) {
 
       if (wailsSearch) {
         // Wails mode – call Go backend
+        const rootPath = props.rootPath?.() || '';
+        if (!rootPath) {
+          // No folder open — fall back to demo search or show empty
+          flatResults = searchDemoContents(q, cs);
+          const grouped = groupResultsByFile(flatResults);
+          const allPaths = new Set(grouped.map((g) => g.filePath));
+          setExpandedFiles(allPaths);
+          const total = grouped.reduce((sum, g) => sum + g.matches.length, 0);
+          setResults(grouped);
+          setResultCount(total);
+          setFileCount(grouped.length);
+          setIsSearching(false);
+          return;
+        }
         const resp = await wailsSearch.Search({
           query: q,
-          rootPath: props.rootPath?.() || '',
+          rootPath,
           isRegex: regex,
           caseSensitive: cs,
           wholeWord: ww,
-          includeGlobs: includeGlobs()
-            .split(',')
-            .map((s) => s.trim())
-            .filter(Boolean),
-          excludeGlobs: excludeGlobs()
-            .split(',')
-            .map((s) => s.trim())
-            .filter(Boolean),
+          includeGlobs: parseGlobs(includeGlobs()),
+          excludeGlobs: parseGlobs(excludeGlobs()),
           maxResults: 1000,
         });
         flatResults = resp?.results || resp || [];
@@ -198,14 +212,8 @@ export default function SearchPanel(props) {
           isRegex: isRegex(),
           caseSensitive: caseSensitive(),
           wholeWord: wholeWord(),
-          includeGlobs: includeGlobs()
-            .split(',')
-            .map((s) => s.trim())
-            .filter(Boolean),
-          excludeGlobs: excludeGlobs()
-            .split(',')
-            .map((s) => s.trim())
-            .filter(Boolean),
+          includeGlobs: parseGlobs(includeGlobs()),
+          excludeGlobs: parseGlobs(excludeGlobs()),
           maxResults: 1000,
           replaceText: rt,
         });

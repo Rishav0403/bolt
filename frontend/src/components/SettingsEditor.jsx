@@ -2,7 +2,7 @@ import { createSignal, createMemo, Show, For } from 'solid-js';
 import { useSettings } from '../contexts/SettingsContext';
 import '../settings-styles.css';
 
-function renderControl(descriptor, settings, updateSetting) {
+function renderControl(descriptor, settings, onUpdate) {
   const currentValue = () => settings()[descriptor.key];
 
   switch (descriptor.type) {
@@ -11,7 +11,7 @@ function renderControl(descriptor, settings, updateSetting) {
         <input
           type="checkbox"
           checked={currentValue()}
-          onChange={e => updateSetting(descriptor.key, e.target.checked)}
+          onChange={e => onUpdate(descriptor.key, e.target.checked)}
         />
       );
 
@@ -20,7 +20,7 @@ function renderControl(descriptor, settings, updateSetting) {
         <input
           type="number"
           value={currentValue()}
-          onChange={e => updateSetting(descriptor.key, parseFloat(e.target.value))}
+          onChange={e => onUpdate(descriptor.key, parseFloat(e.target.value))}
         />
       );
 
@@ -29,7 +29,7 @@ function renderControl(descriptor, settings, updateSetting) {
         return (
           <select
             value={currentValue() || ''}
-            onChange={e => updateSetting(descriptor.key, e.target.value)}
+            onChange={e => onUpdate(descriptor.key, e.target.value)}
           >
             <For each={descriptor.enum}>
               {(option) => <option value={option}>{option}</option>}
@@ -41,7 +41,7 @@ function renderControl(descriptor, settings, updateSetting) {
         <input
           type="text"
           value={currentValue() || ''}
-          onChange={e => updateSetting(descriptor.key, e.target.value)}
+          onChange={e => onUpdate(descriptor.key, e.target.value)}
         />
       );
 
@@ -50,7 +50,7 @@ function renderControl(descriptor, settings, updateSetting) {
         <input
           type="text"
           value={currentValue()?.join(', ') || ''}
-          onChange={e => updateSetting(
+          onChange={e => onUpdate(
             descriptor.key,
             e.target.value.split(',').map(s => s.trim()).filter(Boolean)
           )}
@@ -62,14 +62,14 @@ function renderControl(descriptor, settings, updateSetting) {
         <input
           type="text"
           value={typeof currentValue() === 'object' ? JSON.stringify(currentValue()) : (currentValue() || '')}
-          onChange={e => updateSetting(descriptor.key, e.target.value)}
+          onChange={e => onUpdate(descriptor.key, e.target.value)}
         />
       );
   }
 }
 
 export default function SettingsEditor(props) {
-  const { settings, schema, updateSetting } = useSettings();
+  const { settings, schema, updateSetting, saveWorkspaceSettings, rootPath } = useSettings();
   const [filter, setFilter] = createSignal('');
   const [activeScope, setActiveScope] = createSignal('user');
 
@@ -81,6 +81,24 @@ export default function SettingsEditor(props) {
       (descriptor.description && descriptor.description.toLowerCase().includes(f))
     );
   });
+
+  // Route setting updates through the correct scope
+  function handleUpdate(key, value) {
+    if (activeScope() === 'workspace') {
+      const rp = rootPath();
+      if (rp) {
+        // Build a partial settings object with just this key changed
+        const current = settings();
+        const updated = { ...current, [key]: value };
+        saveWorkspaceSettings(rp, updated);
+      } else {
+        // No workspace open — fall back to user settings
+        updateSetting(key, value);
+      }
+    } else {
+      updateSetting(key, value);
+    }
+  }
 
   return (
     <div class="settings-editor">
@@ -120,7 +138,7 @@ export default function SettingsEditor(props) {
               </div>
               <p class="settings-item-description">{descriptor.description}</p>
               <div class="settings-item-control">
-                {renderControl(descriptor, settings, updateSetting)}
+                {renderControl(descriptor, settings, handleUpdate)}
                 <span class="settings-item-default">
                   Default: {JSON.stringify(descriptor.default)}
                 </span>
