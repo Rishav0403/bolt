@@ -1335,11 +1335,6 @@ kbd:hover {
   background: var(--accent-hover);
 }
 
-.git-commit-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 .git-loading {
   padding: var(--space-md) var(--space-lg);
   color: var(--text-muted);

@@ -12,7 +12,7 @@ import (
 // FileStatus represents the status of a single file in the git working tree.
 type FileStatus struct {
 	Path    string `json:"path"`
-	Status  string `json:"status"` // "modified", "added", "deleted", "renamed", "untracked", "copied"
+	Status  string `json:"status"` // "modified", "added", "deleted", "renamed", "untracked", "copied", "conflict"
 	Staged  bool   `json:"staged"`
 	OldPath string `json:"oldPath"` // populated for renames
 }
@@ -36,9 +36,8 @@ type LogEntry struct {
 
 // Service provides git integration functionality by shelling out to the git CLI.
 type Service struct {
-	mu       sync.Mutex
-	rootPath string
-	ctx      context.Context
+	mu  sync.Mutex
+	ctx context.Context
 }
 
 // NewService creates a new git service.
@@ -56,7 +55,6 @@ func (s *Service) SetContext(ctx context.Context) {
 func (s *Service) runGit(rootPath string, args ...string) (string, error) {
 	fullArgs := append([]string{"-C", rootPath}, args...)
 	cmd := exec.CommandContext(s.ctx, "git", fullArgs...)
-	cmd.Dir = rootPath
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -65,11 +63,10 @@ func (s *Service) runGit(rootPath string, args ...string) (string, error) {
 	return strings.TrimRight(string(output), "\n"), nil
 }
 
-// runGitSeparateStderr executes a git command and returns stdout only, with stderr separate.
+// runGitStdout executes a git command and returns stdout only.
 func (s *Service) runGitStdout(rootPath string, args ...string) (string, error) {
 	fullArgs := append([]string{"-C", rootPath}, args...)
 	cmd := exec.CommandContext(s.ctx, "git", fullArgs...)
-	cmd.Dir = rootPath
 
 	output, err := cmd.Output()
 	if err != nil {
@@ -91,6 +88,8 @@ func mapStatusChar(c byte) string {
 		return "renamed"
 	case 'C':
 		return "copied"
+	case 'U':
+		return "conflict"
 	default:
 		return "modified"
 	}
@@ -201,12 +200,28 @@ func (s *Service) GetStatus(rootPath string) ([]FileStatus, error) {
 			}
 			continue
 		}
+
+		if strings.HasPrefix(line, "u ") {
+			// Merge conflict entry: "u XY sub m1 m2 m3 mW h1 h2 h3 path"
+			fields := strings.SplitN(line, " ", 11)
+			if len(fields) < 11 {
+				continue
+			}
+			path := fields[10]
+			statuses = append(statuses, FileStatus{
+				Path:   path,
+				Status: "conflict",
+				Staged: false,
+			})
+			continue
+		}
 	}
 
 	return statuses, nil
 }
 
 // GetBranch returns information about the current git branch.
+// On a freshly initialized repo with no commits, returns an empty commit hash.
 func (s *Service) GetBranch(rootPath string) (BranchInfo, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -220,12 +235,14 @@ func (s *Service) GetBranch(rootPath string) (BranchInfo, error) {
 	}
 	info.Name = name
 
-	// Get short commit hash
+	// Get short commit hash — may fail on a repo with no commits (unborn HEAD)
 	commit, err := s.runGitStdout(rootPath, "rev-parse", "--short", "HEAD")
 	if err != nil {
-		return info, err
+		// Unborn HEAD (no commits yet) — not a fatal error
+		info.Commit = ""
+	} else {
+		info.Commit = commit
 	}
-	info.Commit = commit
 
 	// Get ahead/behind count relative to upstream
 	// This may fail if there's no upstream configured, so we ignore errors
@@ -282,6 +299,24 @@ func (s *Service) UnstageFile(rootPath, filePath string) error {
 	return err
 }
 
+// StageAll stages all changes for commit using `git add .`.
+func (s *Service) StageAll(rootPath string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	_, err := s.runGit(rootPath, "add", ".")
+	return err
+}
+
+// UnstageAll unstages all staged changes using `git reset HEAD .`.
+func (s *Service) UnstageAll(rootPath string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	_, err := s.runGit(rootPath, "reset", "HEAD", ".")
+	return err
+}
+
 // Commit creates a new commit with the given message.
 func (s *Service) Commit(rootPath, message string) error {
 	s.mu.Lock()
@@ -297,7 +332,8 @@ func (s *Service) GetLog(rootPath string, limit int) ([]LogEntry, error) {
 	defer s.mu.Unlock()
 
 	limitStr := fmt.Sprintf("-%d", limit)
-	output, err := s.runGitStdout(rootPath, "log", "--oneline", limitStr, "--format=%H|%h|%s|%an|%ar")
+	// Use NUL byte (%x00) as delimiter to avoid issues with | in commit messages
+	output, err := s.runGitStdout(rootPath, "log", limitStr, "--format=%H%x00%h%x00%s%x00%an%x00%ar")
 	if err != nil {
 		return nil, err
 	}
@@ -312,7 +348,7 @@ func (s *Service) GetLog(rootPath string, limit int) ([]LogEntry, error) {
 		if line == "" {
 			continue
 		}
-		parts := strings.SplitN(line, "|", 5)
+		parts := strings.SplitN(line, "\x00", 5)
 		if len(parts) < 5 {
 			continue
 		}

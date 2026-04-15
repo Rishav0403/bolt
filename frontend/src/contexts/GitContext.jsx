@@ -3,19 +3,21 @@ import { getWailsGit } from '../utils/wails';
 
 const GitContext = createContext();
 
-// Demo mode mock data
+// Demo mode mock data — uses lowercase keys to match Go JSON tags
 const DEMO_STATUS = [
-  { Path: 'src/App.jsx', Status: 'modified', Staged: false, OldPath: '' },
-  { Path: 'src/utils/helpers.js', Status: 'modified', Staged: true, OldPath: '' },
-  { Path: 'src/components/NewComponent.jsx', Status: 'untracked', Staged: false, OldPath: '' },
-  { Path: 'README.md', Status: 'modified', Staged: true, OldPath: '' },
+  { path: 'src/App.jsx', status: 'modified', staged: false, oldPath: '' },
+  { path: 'src/utils/helpers.js', status: 'modified', staged: true, oldPath: '' },
+  { path: 'src/components/NewComponent.jsx', status: 'untracked', staged: false, oldPath: '' },
+  { path: 'README.md', status: 'modified', staged: true, oldPath: '' },
 ];
 
-const DEMO_BRANCH = { Name: 'main', Commit: 'a1b2c3d', Ahead: 0, Behind: 0 };
+const DEMO_BRANCH = { name: 'main', commit: 'a1b2c3d', ahead: 0, behind: 0 };
+
+const EMPTY_BRANCH = { name: '', commit: '', ahead: 0, behind: 0 };
 
 export function GitProvider(props) {
   const [status, setStatus] = createSignal([]);
-  const [branch, setBranch] = createSignal({ Name: '', Commit: '', Ahead: 0, Behind: 0 });
+  const [branch, setBranch] = createSignal(EMPTY_BRANCH);
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal(null);
 
@@ -39,7 +41,7 @@ export function GitProvider(props) {
         git.GetBranch(root),
       ]);
       setStatus(statusResult || []);
-      setBranch(branchResult || { Name: '', Commit: '', Ahead: 0, Behind: 0 });
+      setBranch(branchResult || EMPTY_BRANCH);
     } catch (err) {
       setError(err.message || 'Git error');
       setStatus([]);
@@ -52,7 +54,7 @@ export function GitProvider(props) {
     const root = props.rootPath?.() || '';
     if (!git) {
       // Demo mode: toggle staged status
-      setStatus(prev => prev.map(f => f.Path === path ? { ...f, Staged: true } : f));
+      setStatus(prev => prev.map(f => f.path === path ? { ...f, staged: true } : f));
       return;
     }
     try {
@@ -64,7 +66,7 @@ export function GitProvider(props) {
   const unstageFile = async (path) => {
     const root = props.rootPath?.() || '';
     if (!git) {
-      setStatus(prev => prev.map(f => f.Path === path ? { ...f, Staged: false } : f));
+      setStatus(prev => prev.map(f => f.path === path ? { ...f, staged: false } : f));
       return;
     }
     try {
@@ -76,13 +78,11 @@ export function GitProvider(props) {
   const stageAll = async () => {
     const root = props.rootPath?.() || '';
     if (!git) {
-      setStatus(prev => prev.map(f => ({ ...f, Staged: true })));
+      setStatus(prev => prev.map(f => ({ ...f, staged: true })));
       return;
     }
     try {
-      for (const f of status().filter(f => !f.Staged)) {
-        await git.StageFile(root, f.Path);
-      }
+      await git.StageAll(root);
       await refresh();
     } catch (err) { setError(err.message); }
   };
@@ -90,13 +90,11 @@ export function GitProvider(props) {
   const unstageAll = async () => {
     const root = props.rootPath?.() || '';
     if (!git) {
-      setStatus(prev => prev.map(f => ({ ...f, Staged: false })));
+      setStatus(prev => prev.map(f => ({ ...f, staged: false })));
       return;
     }
     try {
-      for (const f of status().filter(f => f.Staged)) {
-        await git.UnstageFile(root, f.Path);
-      }
+      await git.UnstageAll(root);
       await refresh();
     } catch (err) { setError(err.message); }
   };
@@ -105,7 +103,7 @@ export function GitProvider(props) {
     const root = props.rootPath?.() || '';
     if (!git) {
       // Demo mode: remove staged files from status
-      setStatus(prev => prev.filter(f => !f.Staged));
+      setStatus(prev => prev.filter(f => !f.staged));
       return;
     }
     try {
@@ -114,9 +112,9 @@ export function GitProvider(props) {
     } catch (err) { setError(err.message); }
   };
 
-  // Auto-refresh when rootPath changes
+  // Auto-refresh when rootPath changes (accessing the signal for Solid tracking)
   createEffect(() => {
-    const root = props.rootPath?.();
+    props.rootPath?.();
     refresh();
   });
 

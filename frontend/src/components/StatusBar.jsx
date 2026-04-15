@@ -14,7 +14,7 @@ export default function StatusBar() {
       <div class="status-bar-left">
         <span class="status-bar-item clickable" title="Source Control">
           <GitBranchIcon />
-          <span>{branch().Name || 'main'}</span>
+          <span>{branch().name || 'main'}</span>
         </span>
         <Show when={status().length > 0}>
           <span class="status-bar-item" title={`${status().length} pending changes`}>
