@@ -2,6 +2,7 @@ package git
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -308,12 +309,12 @@ func TestGetLog(t *testing.T) {
 
 	// Make 3 additional commits (1 already exists from setupTestRepo)
 	for i := 1; i <= 3; i++ {
-		filename := filepath.Join(dir, "file"+string(rune('0'+i))+".txt")
+		filename := filepath.Join(dir, fmt.Sprintf("file%d.txt", i))
 		if err := os.WriteFile(filename, []byte("content\n"), 0644); err != nil {
 			t.Fatal(err)
 		}
 		runCmd(t, dir, "git", "add", ".")
-		runCmd(t, dir, "git", "commit", "-m", "commit "+string(rune('0'+i)))
+		runCmd(t, dir, "git", "commit", "-m", fmt.Sprintf("commit %d", i))
 	}
 
 	// Get log with limit 2
@@ -388,5 +389,167 @@ func TestGetStatus_empty(t *testing.T) {
 
 	if len(statuses) != 0 {
 		t.Errorf("expected no status entries for clean repo, got: %+v", statuses)
+	}
+}
+
+func TestGetBranch_UnbornHead(t *testing.T) {
+	dir := t.TempDir()
+
+	// Initialize git repo without any commits
+	commands := [][]string{
+		{"git", "init"},
+		{"git", "config", "user.email", "test@test.com"},
+		{"git", "config", "user.name", "Test"},
+	}
+	for _, args := range commands {
+		cmd := exec.Command(args[0], args[1:]...)
+		cmd.Dir = dir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("command %v failed: %v\n%s", args, err, out)
+		}
+	}
+
+	svc := NewService()
+	svc.SetContext(context.Background())
+
+	// GetBranch should succeed even with no commits
+	info, err := svc.GetBranch(dir)
+	if err != nil {
+		t.Fatalf("GetBranch should not fail on unborn HEAD, got: %v", err)
+	}
+
+	// Commit should be empty for unborn HEAD
+	if info.Commit != "" {
+		t.Errorf("expected empty commit for unborn HEAD, got %q", info.Commit)
+	}
+}
+
+func TestStageAll(t *testing.T) {
+	dir, svc := setupTestRepo(t)
+
+	// Create multiple untracked files
+	for i := 1; i <= 3; i++ {
+		f := filepath.Join(dir, fmt.Sprintf("stageall_%d.txt", i))
+		if err := os.WriteFile(f, []byte("content\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Stage all
+	if err := svc.StageAll(dir); err != nil {
+		t.Fatalf("StageAll failed: %v", err)
+	}
+
+	// Verify all are staged
+	statuses, err := svc.GetStatus(dir)
+	if err != nil {
+		t.Fatalf("GetStatus failed: %v", err)
+	}
+
+	for _, s := range statuses {
+		if strings.HasPrefix(s.Path, "stageall_") && !s.Staged {
+			t.Errorf("expected %s to be staged, got: %+v", s.Path, s)
+		}
+	}
+}
+
+func TestUnstageAll(t *testing.T) {
+	dir, svc := setupTestRepo(t)
+
+	// Create and stage multiple files
+	for i := 1; i <= 3; i++ {
+		f := filepath.Join(dir, fmt.Sprintf("unstageall_%d.txt", i))
+		if err := os.WriteFile(f, []byte("content\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	runCmd(t, dir, "git", "add", ".")
+
+	// Unstage all
+	if err := svc.UnstageAll(dir); err != nil {
+		t.Fatalf("UnstageAll failed: %v", err)
+	}
+
+	// Verify none are staged
+	statuses, err := svc.GetStatus(dir)
+	if err != nil {
+		t.Fatalf("GetStatus failed: %v", err)
+	}
+
+	for _, s := range statuses {
+		if strings.HasPrefix(s.Path, "unstageall_") && s.Staged {
+			t.Errorf("expected %s to be unstaged, got: %+v", s.Path, s)
+		}
+	}
+}
+
+func TestGetStatus_MergeConflict(t *testing.T) {
+	dir, svc := setupTestRepo(t)
+
+	// Create a branch and modify README on it
+	runCmd(t, dir, "git", "checkout", "-b", "feature")
+	if err := os.WriteFile(filepath.Join(dir, "README.md"), []byte("feature change\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	runCmd(t, dir, "git", "add", ".")
+	runCmd(t, dir, "git", "commit", "-m", "feature commit")
+
+	// Go back to the default branch and make a conflicting change
+	// Get the default branch name first
+	cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
+	cmd.Dir = dir
+	// We're on feature, go back to original branch
+	runCmd(t, dir, "git", "checkout", "-")
+	if err := os.WriteFile(filepath.Join(dir, "README.md"), []byte("main change\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	runCmd(t, dir, "git", "add", ".")
+	runCmd(t, dir, "git", "commit", "-m", "main commit")
+
+	// Attempt to merge feature (this should fail with a conflict)
+	mergeCmd := exec.Command("git", "merge", "feature")
+	mergeCmd.Dir = dir
+	mergeCmd.CombinedOutput() // ignore error — conflict is expected
+
+	// GetStatus should show the conflict
+	statuses, err := svc.GetStatus(dir)
+	if err != nil {
+		t.Fatalf("GetStatus failed: %v", err)
+	}
+
+	found := false
+	for _, s := range statuses {
+		if s.Path == "README.md" && s.Status == "conflict" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected conflict status for README.md, got: %+v", statuses)
+	}
+}
+
+func TestGetLog_PipeInMessage(t *testing.T) {
+	dir, svc := setupTestRepo(t)
+
+	// Create a commit with a pipe character in the message
+	f := filepath.Join(dir, "pipe_test.txt")
+	if err := os.WriteFile(f, []byte("content\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	runCmd(t, dir, "git", "add", ".")
+	runCmd(t, dir, "git", "commit", "-m", "fix: handle a|b pipe case")
+
+	entries, err := svc.GetLog(dir, 1)
+	if err != nil {
+		t.Fatalf("GetLog failed: %v", err)
+	}
+
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
+	}
+
+	if entries[0].Message != "fix: handle a|b pipe case" {
+		t.Errorf("expected message with pipe, got %q", entries[0].Message)
 	}
 }

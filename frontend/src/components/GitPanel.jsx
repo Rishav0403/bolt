@@ -17,6 +17,8 @@ function statusInfo(status) {
       return { letter: 'U', color: 'var(--text-muted)' };
     case 'renamed':
       return { letter: 'R', color: 'var(--info)' };
+    case 'conflict':
+      return { letter: 'C', color: 'var(--danger)' };
     default:
       return { letter: '?', color: 'var(--text-muted)' };
   }
@@ -26,6 +28,7 @@ function statusInfo(status) {
  * Extract the filename (last path segment) and directory from a path.
  */
 function splitPath(filePath) {
+  if (!filePath) return { name: '', dir: '' };
   const lastSlash = filePath.lastIndexOf('/');
   if (lastSlash === -1) return { name: filePath, dir: '' };
   return {
@@ -34,15 +37,15 @@ function splitPath(filePath) {
   };
 }
 
-export default function GitPanel(props) {
+export default function GitPanel() {
   const { status, branch, loading, error, stageFile, unstageFile, stageAll, unstageAll, commit, refresh } = useGit();
 
   const [commitMessage, setCommitMessage] = createSignal('');
   const [stagedExpanded, setStagedExpanded] = createSignal(true);
   const [changesExpanded, setChangesExpanded] = createSignal(true);
 
-  const stagedFiles = createMemo(() => status().filter(f => f.Staged));
-  const unstagedFiles = createMemo(() => status().filter(f => !f.Staged));
+  const stagedFiles = createMemo(() => status().filter(f => f.staged));
+  const unstagedFiles = createMemo(() => status().filter(f => !f.staged));
 
   const handleCommit = async () => {
     const msg = commitMessage().trim();
@@ -63,9 +66,9 @@ export default function GitPanel(props) {
       {/* Branch info bar */}
       <div class="git-branch-bar">
         <GitBranchIcon />
-        <span class="git-branch-name">{branch().Name || 'No branch'}</span>
-        <Show when={branch().Commit}>
-          <span class="git-branch-commit">{branch().Commit?.substring(0, 7)}</span>
+        <span class="git-branch-name">{branch().name || 'No branch'}</span>
+        <Show when={branch().commit}>
+          <span class="git-branch-commit">{branch().commit}</span>
         </Show>
         <button
           class="git-refresh-btn"
@@ -135,10 +138,10 @@ export default function GitPanel(props) {
             <div class="git-file-list">
               <For each={stagedFiles()}>
                 {(file) => {
-                  const info = statusInfo(file.Status);
-                  const { name, dir } = splitPath(file.Path);
+                  const info = statusInfo(file.status);
+                  const { name, dir } = splitPath(file.path);
                   return (
-                    <div class="git-file-row" title={file.Path}>
+                    <div class="git-file-row" title={file.path}>
                       <span class="git-file-name">{name}</span>
                       <Show when={dir}>
                         <span class="git-file-dir">{dir}</span>
@@ -146,7 +149,7 @@ export default function GitPanel(props) {
                       <span class="git-file-status" style={{ color: info.color }}>{info.letter}</span>
                       <button
                         class="git-file-action"
-                        onClick={() => unstageFile(file.Path)}
+                        onClick={() => unstageFile(file.path)}
                         title="Unstage"
                       >
                         −
@@ -182,10 +185,10 @@ export default function GitPanel(props) {
             <div class="git-file-list">
               <For each={unstagedFiles()}>
                 {(file) => {
-                  const info = statusInfo(file.Status);
-                  const { name, dir } = splitPath(file.Path);
+                  const info = statusInfo(file.status);
+                  const { name, dir } = splitPath(file.path);
                   return (
-                    <div class="git-file-row" title={file.Path}>
+                    <div class="git-file-row" title={file.path}>
                       <span class="git-file-name">{name}</span>
                       <Show when={dir}>
                         <span class="git-file-dir">{dir}</span>
@@ -193,7 +196,7 @@ export default function GitPanel(props) {
                       <span class="git-file-status" style={{ color: info.color }}>{info.letter}</span>
                       <button
                         class="git-file-action"
-                        onClick={() => stageFile(file.Path)}
+                        onClick={() => stageFile(file.path)}
                         title="Stage"
                       >
                         +

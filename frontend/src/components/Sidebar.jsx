@@ -36,7 +36,7 @@ const sidebarViews = [
   {
     id: 'git',
     title: 'SOURCE CONTROL',
-    component: (props) => <GitPanel rootPath={props.rootPath} />,
+    component: () => <GitPanel />,
   },
   {
     id: 'extensions',
