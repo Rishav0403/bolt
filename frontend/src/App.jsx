@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { createSignal, onMount } from 'solid-js';
 import { EditorProvider } from './contexts/EditorContext';
 import { CommandProvider, useCommands } from './contexts/CommandContext';
 import ActivityBar from './components/ActivityBar';
@@ -7,15 +7,15 @@ import TabBar from './components/TabBar';
 import EditorPane from './components/EditorPane';
 import StatusBar from './components/StatusBar';
 import CommandPalette from './components/CommandPalette';
-import { isWailsEnv, getWailsFs } from './utils/wails';
+import { getWailsFs } from './utils/wails';
 
 function AppInner() {
-  const [activeView, setActiveView] = useState('explorer');
-  const [rootPath, setRootPath] = useState('');
+  const [activeView, setActiveView] = createSignal('explorer');
+  const [rootPath, setRootPath] = createSignal('');
   const { registerCommands, openPalette } = useCommands();
 
-  // Register built-in commands (keyboard shortcuts are dispatched by CommandContext)
-  useEffect(() => {
+  // Register built-in commands once on mount
+  onMount(() => {
     registerCommands([
       {
         id: 'openFolder',
@@ -70,44 +70,20 @@ function AppInner() {
         handler: () => setActiveView('extensions'),
       },
     ]);
-  }, [registerCommands, openPalette]);
+  });
 
   return (
-    <div className="app-shell">
-      <div className="app-main">
+    <div class="app-shell">
+      <div class="app-main">
         <ActivityBar activeView={activeView} onViewChange={setActiveView} />
         <Sidebar activeView={activeView} rootPath={rootPath} />
-        <div className="editor-area">
+        <div class="editor-area">
           <TabBar />
           <EditorPane />
         </div>
       </div>
       <StatusBar />
       <CommandPalette />
-
-      <style>{`
-        .app-shell {
-          width: 100%;
-          height: 100%;
-          display: flex;
-          flex-direction: column;
-          overflow: hidden;
-        }
-
-        .app-main {
-          flex: 1;
-          display: flex;
-          overflow: hidden;
-        }
-
-        .editor-area {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          overflow: hidden;
-          min-width: 0;
-        }
-      `}</style>
     </div>
   );
 }

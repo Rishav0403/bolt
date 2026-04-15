@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { createSignal, createEffect, Show, For } from 'solid-js';
 import TreeNode from './TreeNode';
 import { useEditor } from '../contexts/EditorContext';
 import { isWailsEnv, getWailsFs } from '../utils/wails';
@@ -68,7 +68,7 @@ export default function App() {
         <Sidebar />
         <main className="content">
           <h1>Welcome to Bolt</h1>
-          <p>A blazing-fast code editor built with Wails + React</p>
+          <p>A blazing-fast code editor built with Wails + SolidJS</p>
         </main>
       </div>
     </div>
@@ -261,10 +261,8 @@ if __name__ == "__main__":
     "preview": "vite preview"
   },
   "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "monaco-editor": "^0.45.0",
-    "@monaco-editor/react": "^4.6.0"
+    "solid-js": "^1.9.0",
+    "monaco-editor": "^0.55.0"
   }
 }`,
   '/demo/README.md': `# Bolt Editor
@@ -272,7 +270,7 @@ if __name__ == "__main__":
 A blazing-fast, VS Code-inspired desktop code editor built with:
 
 - **Wails v2** — Go backend with native webview (no Electron!)
-- **React** — UI framework
+- **SolidJS** — Fine-grained reactive UI framework
 - **Monaco Editor** — The same editor engine that powers VS Code
 - **Go** — Backend for file system, LSP, git, and more
 
@@ -329,22 +327,23 @@ require (
 )`,
 };
 
-export default function FileExplorer({ rootPath }) {
-  const [tree, setTree] = useState([]);
-  const [projectName, setProjectName] = useState('');
+export default function FileExplorer(props) {
+  const [tree, setTree] = createSignal([]);
+  const [projectName, setProjectName] = createSignal('');
   const { openFile } = useEditor();
 
-  const loadTree = useCallback(async () => {
+  async function loadTree() {
     const fs = getWailsFs();
-    if (fs && rootPath) {
+    const rp = props.rootPath();
+    if (fs && rp) {
       try {
-        const result = await fs.ListDir(rootPath);
+        const result = await fs.ListDir(rp);
         setTree(result || []);
-        setProjectName(baseName(rootPath) || rootPath);
+        setProjectName(baseName(rp) || rp);
       } catch (err) {
         console.error('Failed to load directory:', err);
       }
-    } else if (fs && !rootPath) {
+    } else if (fs && !rp) {
       // Wails env but no folder opened — show empty state
       setTree([]);
       setProjectName('');
@@ -353,13 +352,16 @@ export default function FileExplorer({ rootPath }) {
       setTree(DEMO_TREE);
       setProjectName('bolt-editor');
     }
-  }, [rootPath]);
+  }
 
-  useEffect(() => {
+  // Reload tree when rootPath changes
+  createEffect(() => {
+    // Access the signal to track it
+    props.rootPath();
     loadTree();
-  }, [loadTree]);
+  });
 
-  const handleFileClick = useCallback(async (entry) => {
+  async function handleFileClick(entry) {
     const fs = getWailsFs();
     if (fs) {
       try {
@@ -373,57 +375,27 @@ export default function FileExplorer({ rootPath }) {
       const content = DEMO_CONTENTS[entry.path] || `// ${entry.name}\n// File content would be loaded from disk in the desktop app`;
       openFile(entry.path, entry.name, content);
     }
-  }, [openFile]);
+  }
 
   return (
-    <div className="file-explorer">
-      {projectName && (
-        <div className="file-explorer-project">
-          <span className="file-explorer-project-name truncate">{projectName.toUpperCase()}</span>
+    <div class="file-explorer">
+      <Show when={projectName()}>
+        <div class="file-explorer-project">
+          <span class="file-explorer-project-name truncate">{projectName().toUpperCase()}</span>
         </div>
-      )}
-      <div className="file-explorer-tree">
-        {tree.map(entry => (
-          <TreeNode
-            key={entry.path}
-            entry={entry}
-            depth={0}
-            onFileClick={handleFileClick}
-            onRefreshDir={loadTree}
-          />
-        ))}
+      </Show>
+      <div class="file-explorer-tree">
+        <For each={tree()}>
+          {(entry) => (
+            <TreeNode
+              entry={entry}
+              depth={0}
+              onFileClick={handleFileClick}
+              onRefreshDir={loadTree}
+            />
+          )}
+        </For>
       </div>
-
-      <style>{`
-        .file-explorer {
-          height: 100%;
-          display: flex;
-          flex-direction: column;
-        }
-
-        .file-explorer-project {
-          display: flex;
-          align-items: center;
-          height: 22px;
-          padding: 0 12px;
-          font-size: 11px;
-          font-weight: 600;
-          color: var(--text-secondary);
-          letter-spacing: 0.5px;
-          cursor: pointer;
-        }
-
-        .file-explorer-project:hover {
-          background: var(--bg-hover);
-        }
-
-        .file-explorer-tree {
-          flex: 1;
-          overflow-y: auto;
-          overflow-x: hidden;
-          padding: 2px 0;
-        }
-      `}</style>
     </div>
   );
 }

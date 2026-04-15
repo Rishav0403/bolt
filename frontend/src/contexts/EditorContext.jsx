@@ -1,75 +1,107 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import { createContext, useContext, createSignal, createMemo } from 'solid-js';
+import { createStore, produce } from 'solid-js/store';
 
-const EditorContext = createContext(null);
+const EditorContext = createContext();
 
-export function EditorProvider({ children }) {
-  const [tabs, setTabs] = useState([]);
-  const [activeTabId, setActiveTabId] = useState(null);
+export function EditorProvider(props) {
+  const [tabs, setTabs] = createStore([]);
+  const [activeTabId, setActiveTabId] = createSignal(null);
 
-  const openFile = useCallback((path, name, content) => {
-    setTabs(prev => {
-      const existing = prev.find(t => t.path === path);
-      if (existing) {
-        setActiveTabId(existing.id);
-        return prev;
-      }
-      const id = path;
-      const newTab = {
+  // Ref-based content store: avoids triggering reactivity on every keystroke.
+  // Keys are tab IDs, values are the latest editor content strings.
+  const contentMap = {};
+
+  const activeTab = createMemo(() => {
+    const id = activeTabId();
+    return tabs.find(t => t.id === id) || null;
+  });
+
+  function openFile(path, name, content) {
+    const existing = tabs.find(t => t.path === path);
+    if (existing) {
+      setActiveTabId(existing.id);
+      return;
+    }
+    const id = path;
+    const c = content || '';
+    contentMap[id] = c;
+    setTabs(produce(prev => {
+      prev.push({
         id,
         path,
         name,
-        content: content || '',
-        originalContent: content || '',
+        originalContent: c,
         isModified: false,
         language: getLanguageFromPath(path),
-      };
-      setActiveTabId(id);
-      return [...prev, newTab];
-    });
-  }, []);
+      });
+    }));
+    setActiveTabId(id);
+  }
 
-  const closeTab = useCallback((id) => {
-    setTabs(prev => {
-      const idx = prev.findIndex(t => t.id === id);
-      const newTabs = prev.filter(t => t.id !== id);
-      if (id === activeTabId && newTabs.length > 0) {
-        const newIdx = Math.min(idx, newTabs.length - 1);
-        setActiveTabId(newTabs[newIdx].id);
-      } else if (newTabs.length === 0) {
+  function closeTab(id) {
+    const idx = tabs.findIndex(t => t.id === id);
+    if (idx === -1) return;
+    delete contentMap[id];
+    setTabs(produce(prev => { prev.splice(idx, 1); }));
+    // After removal, always reconcile activeTabId:
+    // - if the closed tab was active, pick a neighbor
+    // - if the closed tab was the one activeTabId points to (same check), clear it
+    // - if tabs is now empty, clear it
+    if (id === activeTabId() || tabs.length === 0) {
+      if (tabs.length > 0) {
+        const newIdx = Math.min(idx, tabs.length - 1);
+        setActiveTabId(tabs[newIdx].id);
+      } else {
         setActiveTabId(null);
       }
-      return newTabs;
-    });
-  }, [activeTabId]);
+    }
+  }
 
-  const updateTabContent = useCallback((id, content) => {
-    setTabs(prev => prev.map(t => {
-      if (t.id !== id) return t;
-      return { ...t, content, isModified: content !== t.originalContent };
-    }));
-  }, []);
+  // Called on every keystroke -- only updates the plain object, no reactivity.
+  function updateTabContent(id, content) {
+    contentMap[id] = content;
+  }
 
-  const markTabSaved = useCallback((id, content) => {
-    setTabs(prev => prev.map(t => {
-      if (t.id !== id) return t;
-      return { ...t, content, originalContent: content, isModified: false };
-    }));
-  }, []);
+  // Called to sync the modified indicator into the store (debounced from EditorPane).
+  function syncModifiedFlag(id) {
+    const content = contentMap[id];
+    if (content === undefined) return;
+    const idx = tabs.findIndex(t => t.id === id);
+    if (idx === -1) return;
+    const isModified = content !== tabs[idx].originalContent;
+    if (tabs[idx].isModified !== isModified) {
+      setTabs(idx, 'isModified', isModified);
+    }
+  }
 
-  const activeTab = tabs.find(t => t.id === activeTabId) || null;
+  // Returns the current content for a tab from the plain object (no reactivity).
+  function getTabContent(id) {
+    return contentMap[id];
+  }
+
+  function markTabSaved(id, content) {
+    contentMap[id] = content;
+    const idx = tabs.findIndex(t => t.id === id);
+    if (idx === -1) return;
+    setTabs(idx, { originalContent: content, isModified: false });
+  }
+
+  const value = {
+    tabs,
+    activeTabId,
+    activeTab,
+    setActiveTabId,
+    openFile,
+    closeTab,
+    updateTabContent,
+    syncModifiedFlag,
+    getTabContent,
+    markTabSaved,
+  };
 
   return (
-    <EditorContext.Provider value={{
-      tabs,
-      activeTabId,
-      activeTab,
-      setActiveTabId,
-      openFile,
-      closeTab,
-      updateTabContent,
-      markTabSaved,
-    }}>
-      {children}
+    <EditorContext.Provider value={value}>
+      {props.children}
     </EditorContext.Provider>
   );
 }
@@ -81,18 +113,15 @@ export function useEditor() {
 }
 
 function getLanguageFromPath(path) {
-  // Extract the basename first (handles both / and \ separators for cross-platform)
   const lastSlash = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
   const name = lastSlash >= 0 ? path.substring(lastSlash + 1) : path;
 
-  // Check extensionless known filenames first (case-insensitive)
   const nameLower = name.toLowerCase();
   const knownNames = { makefile: 'makefile', dockerfile: 'dockerfile' };
   if (knownNames[nameLower]) return knownNames[nameLower];
 
-  // Then check the extension from the basename (not the full path)
   const dotIdx = name.lastIndexOf('.');
-  if (dotIdx <= 0) return 'plaintext'; // no extension, or hidden file like .gitignore
+  if (dotIdx <= 0) return 'plaintext';
   const ext = name.substring(dotIdx + 1).toLowerCase();
 
   const extToLang = {

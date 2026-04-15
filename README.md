@@ -1,6 +1,6 @@
 # Bolt Editor
 
-A blazing-fast, VS Code-inspired desktop code editor built with **Wails v2** (Go backend + native webview), **React**, and **Monaco Editor**.
+A blazing-fast, VS Code-inspired desktop code editor built with **Wails v2** (Go backend + native webview), **SolidJS**, and **Monaco Editor**.
 
 ## Why Bolt?
 
@@ -10,7 +10,7 @@ A blazing-fast, VS Code-inspired desktop code editor built with **Wails v2** (Go
 | RAM (idle) | 300-500MB | < 100MB |
 | Cold startup | ~2-4s | < 500ms |
 
-Bolt uses the system's native webview instead of bundling Chromium, resulting in dramatically smaller binaries and lower memory usage.
+Bolt uses the system's native webview instead of bundling Chromium, resulting in dramatically smaller binaries and lower memory usage. SolidJS provides fine-grained reactivity with no Virtual DOM overhead, making the editor feel snappy even with large files.
 
 ## Architecture
 
@@ -20,7 +20,7 @@ Bolt uses the system's native webview instead of bundling Chromium, resulting in
 │ ┌─────────────────┐ ┌────────────────────┐  │
 │ │ Go Backend      │ │ WebView Frontend   │  │
 │ │ - File System   │◄►│ - Monaco Editor   │  │
-│ │ - Settings      │ │ - React UI         │  │
+│ │ - Settings      │ │ - SolidJS UI       │  │
 │ │ - (LSP, Git...) │ │ - Command Palette  │  │
 │ └─────────────────┘ └────────────────────┘  │
 └─────────────────────────────────────────────┘
@@ -83,8 +83,8 @@ bolt/
 │   └── settings/        # Settings service
 ├── frontend/
 │   └── src/
-│       ├── components/  # React components
-│       ├── contexts/    # React contexts (state)
+│       ├── components/  # SolidJS components
+│       ├── contexts/    # SolidJS contexts (state)
 │       └── style.css    # Global styles
 └── Makefile             # Build commands
 ```
