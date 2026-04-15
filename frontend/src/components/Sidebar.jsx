@@ -1,6 +1,44 @@
 import React from 'react';
 import FileExplorer from './FileExplorer';
 
+// Reusable placeholder for coming-soon sidebar views
+function PlaceholderView({ icon, title, hint }) {
+  return (
+    <div className="sidebar-placeholder">
+      {icon && <div className="sidebar-placeholder-icon">{icon}</div>}
+      <p>{title}</p>
+      <p className="sidebar-placeholder-hint">{hint}</p>
+    </div>
+  );
+}
+
+// SVG icons for placeholder views
+const placeholderIcons = {
+  search: (
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" opacity="0.3">
+      <circle cx="11" cy="11" r="7" />
+      <path d="M16 16L21 21" />
+    </svg>
+  ),
+  git: (
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" opacity="0.3">
+      <circle cx="12" cy="6" r="2" />
+      <circle cx="12" cy="18" r="2" />
+      <circle cx="18" cy="12" r="2" />
+      <path d="M12 8V16" />
+      <path d="M12 8C12 10 14 12 16 12" />
+    </svg>
+  ),
+  extensions: (
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" opacity="0.3">
+      <rect x="3" y="3" width="8" height="8" rx="1" />
+      <rect x="13" y="3" width="8" height="8" rx="1" />
+      <rect x="3" y="13" width="8" height="8" rx="1" />
+      <rect x="13" y="13" width="8" height="8" rx="1" />
+    </svg>
+  ),
+};
+
 export default function Sidebar({ activeView, rootPath }) {
   if (!activeView) return null;
 
@@ -9,56 +47,13 @@ export default function Sidebar({ activeView, rootPath }) {
       case 'explorer':
         return <FileExplorer rootPath={rootPath} />;
       case 'search':
-        return (
-          <div className="sidebar-placeholder">
-            <div className="sidebar-placeholder-icon">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" opacity="0.3">
-                <circle cx="11" cy="11" r="7" />
-                <path d="M16 16L21 21" />
-              </svg>
-            </div>
-            <p>Search</p>
-            <p className="sidebar-placeholder-hint">Coming in Phase 2</p>
-          </div>
-        );
+        return <PlaceholderView icon={placeholderIcons.search} title="Search" hint="Coming in Phase 2" />;
       case 'git':
-        return (
-          <div className="sidebar-placeholder">
-            <div className="sidebar-placeholder-icon">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" opacity="0.3">
-                <circle cx="12" cy="6" r="2" />
-                <circle cx="12" cy="18" r="2" />
-                <circle cx="18" cy="12" r="2" />
-                <path d="M12 8V16" />
-                <path d="M12 8C12 10 14 12 16 12" />
-              </svg>
-            </div>
-            <p>Source Control</p>
-            <p className="sidebar-placeholder-hint">Coming in Phase 4</p>
-          </div>
-        );
+        return <PlaceholderView icon={placeholderIcons.git} title="Source Control" hint="Coming in Phase 4" />;
       case 'extensions':
-        return (
-          <div className="sidebar-placeholder">
-            <div className="sidebar-placeholder-icon">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" opacity="0.3">
-                <rect x="3" y="3" width="8" height="8" rx="1" />
-                <rect x="13" y="3" width="8" height="8" rx="1" />
-                <rect x="3" y="13" width="8" height="8" rx="1" />
-                <rect x="13" y="13" width="8" height="8" rx="1" />
-              </svg>
-            </div>
-            <p>Extensions</p>
-            <p className="sidebar-placeholder-hint">Coming in Phase 5</p>
-          </div>
-        );
+        return <PlaceholderView icon={placeholderIcons.extensions} title="Extensions" hint="Coming in Phase 5" />;
       case 'settings':
-        return (
-          <div className="sidebar-placeholder">
-            <p>Settings</p>
-            <p className="sidebar-placeholder-hint">Coming soon</p>
-          </div>
-        );
+        return <PlaceholderView title="Settings" hint="Coming soon" />;
       default:
         return null;
     }

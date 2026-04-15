@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import TreeNode from './TreeNode';
 import { useEditor } from '../contexts/EditorContext';
+import { isWailsEnv, getWailsFs } from '../utils/wails';
+import { baseName } from '../utils/pathUtils';
 
 // Demo file tree for browser preview (when Wails backend isn't available)
 const DEMO_TREE = [
@@ -332,32 +334,36 @@ export default function FileExplorer({ rootPath }) {
   const [projectName, setProjectName] = useState('');
   const { openFile } = useEditor();
 
-  const isWails = typeof window !== 'undefined' && window.go?.fs?.Service;
-
   const loadTree = useCallback(async () => {
-    if (isWails && rootPath) {
+    const fs = getWailsFs();
+    if (fs && rootPath) {
       try {
-        const result = await window.go.fs.Service.ListDir(rootPath);
+        const result = await fs.ListDir(rootPath);
         setTree(result || []);
-        setProjectName(rootPath.split('/').pop() || rootPath);
+        setProjectName(baseName(rootPath) || rootPath);
       } catch (err) {
         console.error('Failed to load directory:', err);
       }
+    } else if (fs && !rootPath) {
+      // Wails env but no folder opened — show empty state
+      setTree([]);
+      setProjectName('');
     } else {
-      // Demo mode for browser preview
+      // Demo mode for browser preview (non-Wails)
       setTree(DEMO_TREE);
       setProjectName('bolt-editor');
     }
-  }, [rootPath, isWails]);
+  }, [rootPath]);
 
   useEffect(() => {
     loadTree();
   }, [loadTree]);
 
   const handleFileClick = useCallback(async (entry) => {
-    if (isWails) {
+    const fs = getWailsFs();
+    if (fs) {
       try {
-        const content = await window.go.fs.Service.ReadFile(entry.path);
+        const content = await fs.ReadFile(entry.path);
         openFile(entry.path, entry.name, content);
       } catch (err) {
         console.error('Failed to read file:', err);
@@ -367,7 +373,7 @@ export default function FileExplorer({ rootPath }) {
       const content = DEMO_CONTENTS[entry.path] || `// ${entry.name}\n// File content would be loaded from disk in the desktop app`;
       openFile(entry.path, entry.name, content);
     }
-  }, [isWails, openFile]);
+  }, [openFile]);
 
   return (
     <div className="file-explorer">

@@ -18,12 +18,24 @@ func setupTestDir(t *testing.T) string {
 	//   hello.go
 	//   readme.md
 	//   .hidden
-	os.MkdirAll(filepath.Join(dir, "alpha"), 0755)
-	os.MkdirAll(filepath.Join(dir, "beta"), 0755)
-	os.WriteFile(filepath.Join(dir, "alpha", "nested.txt"), []byte("nested content"), 0644)
-	os.WriteFile(filepath.Join(dir, "hello.go"), []byte("package main"), 0644)
-	os.WriteFile(filepath.Join(dir, "readme.md"), []byte("# Readme"), 0644)
-	os.WriteFile(filepath.Join(dir, ".hidden"), []byte("hidden"), 0644)
+	if err := os.MkdirAll(filepath.Join(dir, "alpha"), 0755); err != nil {
+		t.Fatalf("failed to create alpha dir: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "beta"), 0755); err != nil {
+		t.Fatalf("failed to create beta dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "alpha", "nested.txt"), []byte("nested content"), 0644); err != nil {
+		t.Fatalf("failed to write nested.txt: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "hello.go"), []byte("package main"), 0644); err != nil {
+		t.Fatalf("failed to write hello.go: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "readme.md"), []byte("# Readme"), 0644); err != nil {
+		t.Fatalf("failed to write readme.md: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".hidden"), []byte("hidden"), 0644); err != nil {
+		t.Fatalf("failed to write .hidden: %v", err)
+	}
 
 	return dir
 }
@@ -225,5 +237,48 @@ func TestRenamePath(t *testing.T) {
 	_, err = os.Stat(newPath)
 	if err != nil {
 		t.Error("expected new path to exist")
+	}
+}
+
+func TestCreateFile_ExistingFile(t *testing.T) {
+	dir := setupTestDir(t)
+	svc := NewService()
+
+	// Try to create a file that already exists
+	path := filepath.Join(dir, "hello.go")
+	err := svc.CreateFile(path)
+	if err == nil {
+		t.Fatal("expected error when creating file that already exists")
+	}
+
+	// Verify existing file was not overwritten
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("failed to read existing file: %v", err)
+	}
+	if string(data) != "package main" {
+		t.Errorf("existing file content was modified: got '%s'", string(data))
+	}
+}
+
+func TestRenamePath_ExistingDestination(t *testing.T) {
+	dir := setupTestDir(t)
+	svc := NewService()
+
+	// Try to rename hello.go to readme.md (which already exists)
+	oldPath := filepath.Join(dir, "hello.go")
+	newPath := filepath.Join(dir, "readme.md")
+	err := svc.RenamePath(oldPath, newPath)
+	if err == nil {
+		t.Fatal("expected error when renaming to existing destination")
+	}
+
+	// Verify both files still exist with original content
+	data, err := os.ReadFile(newPath)
+	if err != nil {
+		t.Fatalf("failed to read destination file: %v", err)
+	}
+	if string(data) != "# Readme" {
+		t.Errorf("destination file content was modified: got '%s'", string(data))
 	}
 }

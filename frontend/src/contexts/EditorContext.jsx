@@ -82,7 +82,7 @@ export function useEditor() {
 
 function getLanguageFromPath(path) {
   const ext = path.split('.').pop()?.toLowerCase();
-  const map = {
+  const extToLang = {
     js: 'javascript', jsx: 'javascript', ts: 'typescript', tsx: 'typescript',
     go: 'go', py: 'python', rs: 'rust', rb: 'ruby',
     java: 'java', c: 'c', cpp: 'cpp', h: 'c', hpp: 'cpp',
@@ -92,7 +92,7 @@ function getLanguageFromPath(path) {
     dockerfile: 'dockerfile', makefile: 'makefile',
     mod: 'go', sum: 'plaintext', txt: 'plaintext',
   };
-  return map[ext] || 'plaintext';
+  return extToLang[ext] || 'plaintext';
 }
 
 export default EditorContext;

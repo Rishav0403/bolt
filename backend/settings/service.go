@@ -2,6 +2,8 @@ package settings
 
 import (
 	"encoding/json"
+	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -70,35 +72,50 @@ func (s *Service) GetSettings() Settings {
 }
 
 // UpdateSetting updates a single setting by key and persists to disk.
+// Returns an error for unknown keys or values of the wrong type.
 func (s *Service) UpdateSetting(key string, value interface{}) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	switch key {
 	case "theme":
-		if v, ok := value.(string); ok {
-			s.settings.Theme = v
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("invalid type for %q: expected string", key)
 		}
+		s.settings.Theme = v
 	case "fontSize":
-		if v, ok := value.(float64); ok {
-			s.settings.FontSize = int(v)
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("invalid type for %q: expected number", key)
 		}
+		s.settings.FontSize = int(v)
 	case "fontFamily":
-		if v, ok := value.(string); ok {
-			s.settings.FontFamily = v
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("invalid type for %q: expected string", key)
 		}
+		s.settings.FontFamily = v
 	case "tabSize":
-		if v, ok := value.(float64); ok {
-			s.settings.TabSize = int(v)
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("invalid type for %q: expected number", key)
 		}
+		s.settings.TabSize = int(v)
 	case "wordWrap":
-		if v, ok := value.(string); ok {
-			s.settings.WordWrap = v
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("invalid type for %q: expected string", key)
 		}
+		s.settings.WordWrap = v
 	case "minimap":
-		if v, ok := value.(bool); ok {
-			s.settings.Minimap = v
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("invalid type for %q: expected bool", key)
 		}
+		s.settings.Minimap = v
+	default:
+		return fmt.Errorf("unknown setting key: %s", key)
 	}
 
 	return s.save()
@@ -113,12 +130,16 @@ func (s *Service) UpdateAllSettings(newSettings Settings) error {
 }
 
 // load reads settings from disk. If the file doesn't exist, defaults are kept.
+// If the file is corrupted, a warning is logged and defaults are used.
 func (s *Service) load() {
 	data, err := os.ReadFile(s.filePath)
 	if err != nil {
 		return // Use defaults
 	}
-	json.Unmarshal(data, &s.settings)
+	if err := json.Unmarshal(data, &s.settings); err != nil {
+		log.Printf("warning: failed to parse settings file %s: %v — using defaults", s.filePath, err)
+		s.settings = DefaultSettings()
+	}
 }
 
 // save writes the current settings to disk.

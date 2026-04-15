@@ -1,14 +1,10 @@
 import React, { useRef, useEffect, useCallback } from 'react';
 import Editor from '@monaco-editor/react';
 import { useEditor } from '../contexts/EditorContext';
-
-// Check if we're running inside Wails (wailsjs bindings available)
-function isWailsEnv() {
-  return typeof window !== 'undefined' && window.go?.fs?.Service;
-}
+import { isWailsEnv, getWailsFs } from '../utils/wails';
 
 export default function EditorPane() {
-  const { activeTab, tabs, updateTabContent, markTabSaved } = useEditor();
+  const { activeTab, updateTabContent, closeTab, markTabSaved } = useEditor();
   const editorRef = useRef(null);
 
   const handleEditorDidMount = useCallback((editor) => {
@@ -29,9 +25,10 @@ export default function EditorPane() {
         e.preventDefault();
         if (!activeTab) return;
 
-        if (isWailsEnv()) {
+        const fs = getWailsFs();
+        if (fs) {
           try {
-            await window.go.fs.Service.WriteFile(activeTab.path, activeTab.content);
+            await fs.WriteFile(activeTab.path, activeTab.content);
             markTabSaved(activeTab.id, activeTab.content);
           } catch (err) {
             console.error('Failed to save file:', err);
@@ -51,11 +48,14 @@ export default function EditorPane() {
     const handler = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'w') {
         e.preventDefault();
+        if (activeTab) {
+          closeTab(activeTab.id);
+        }
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, []);
+  }, [activeTab, closeTab]);
 
   if (!activeTab) {
     return (

@@ -1,19 +1,10 @@
 import React, { useState, useCallback } from 'react';
+import { isWailsEnv, getWailsFs } from '../utils/wails';
+import { getExtColor } from '../utils/fileIcons';
+import { parentDir, joinPath } from '../utils/pathUtils';
 
-// Extension-based file icon colors
-const extColors = {
-  js: '#e8d44d', jsx: '#61dafb', ts: '#3178c6', tsx: '#3178c6',
-  go: '#00add8', py: '#3776ab', rs: '#dea584', rb: '#cc342d',
-  java: '#b07219', c: '#555555', cpp: '#f34b7d', h: '#555555',
-  html: '#e34c26', htm: '#e34c26', css: '#563d7c', scss: '#c6538c',
-  json: '#cbcb41', yaml: '#cb171e', yml: '#cb171e', toml: '#9c4221',
-  md: '#519aba', xml: '#e37933', sql: '#e38c00', sh: '#89e051',
-  txt: '#969696', mod: '#00add8', sum: '#969696',
-};
-
-function getExtColor(ext) {
-  return extColors[ext] || '#969696';
-}
+// Folder icon SVG path (same shape for expanded and collapsed)
+const FOLDER_ICON_PATH = "M3 7V17C3 18.1 3.9 19 5 19H19C20.1 19 21 18.1 21 17V9C21 7.9 20.1 7 19 7H13L11 5H5C3.9 5 3 5.9 3 7Z";
 
 export default function TreeNode({ entry, depth = 0, onFileClick, onRefreshDir }) {
   const [expanded, setExpanded] = useState(false);
@@ -21,15 +12,14 @@ export default function TreeNode({ entry, depth = 0, onFileClick, onRefreshDir }
   const [loading, setLoading] = useState(false);
   const [contextMenu, setContextMenu] = useState(null);
 
-  const isWails = typeof window !== 'undefined' && window.go?.fs?.Service;
-
   const toggleExpand = useCallback(async () => {
     if (!entry.isDir) return;
 
-    if (!expanded && isWails) {
+    const fs = getWailsFs();
+    if (!expanded && fs) {
       setLoading(true);
       try {
-        const result = await window.go.fs.Service.ListDir(entry.path);
+        const result = await fs.ListDir(entry.path);
         setChildren(result || []);
       } catch (err) {
         console.error('Failed to list dir:', err);
@@ -37,7 +27,7 @@ export default function TreeNode({ entry, depth = 0, onFileClick, onRefreshDir }
       setLoading(false);
     }
     setExpanded(prev => !prev);
-  }, [entry, expanded, isWails]);
+  }, [entry, expanded]);
 
   const handleClick = useCallback(() => {
     if (entry.isDir) {
@@ -58,37 +48,38 @@ export default function TreeNode({ entry, depth = 0, onFileClick, onRefreshDir }
 
   const handleContextAction = useCallback(async (action) => {
     closeContextMenu();
-    if (!isWails) return;
+    const fs = getWailsFs();
+    if (!fs) return;
 
     try {
       switch (action) {
         case 'newFile': {
           const name = prompt('File name:');
           if (!name) return;
-          const path = entry.isDir ? `${entry.path}/${name}` : `${entry.path.substring(0, entry.path.lastIndexOf('/'))}/${name}`;
-          await window.go.fs.Service.CreateFile(path);
+          const dir = entry.isDir ? entry.path : parentDir(entry.path);
+          await fs.CreateFile(joinPath(dir, name));
           onRefreshDir?.();
           break;
         }
         case 'newFolder': {
           const name = prompt('Folder name:');
           if (!name) return;
-          const path = entry.isDir ? `${entry.path}/${name}` : `${entry.path.substring(0, entry.path.lastIndexOf('/'))}/${name}`;
-          await window.go.fs.Service.CreateDir(path);
+          const dir = entry.isDir ? entry.path : parentDir(entry.path);
+          await fs.CreateDir(joinPath(dir, name));
           onRefreshDir?.();
           break;
         }
         case 'rename': {
           const newName = prompt('New name:', entry.name);
           if (!newName || newName === entry.name) return;
-          const dir = entry.path.substring(0, entry.path.lastIndexOf('/'));
-          await window.go.fs.Service.RenamePath(entry.path, `${dir}/${newName}`);
+          const dir = parentDir(entry.path);
+          await fs.RenamePath(entry.path, joinPath(dir, newName));
           onRefreshDir?.();
           break;
         }
         case 'delete': {
           if (confirm(`Delete "${entry.name}"?`)) {
-            await window.go.fs.Service.DeletePath(entry.path);
+            await fs.DeletePath(entry.path);
             onRefreshDir?.();
           }
           break;
@@ -97,7 +88,7 @@ export default function TreeNode({ entry, depth = 0, onFileClick, onRefreshDir }
     } catch (err) {
       console.error(`Action ${action} failed:`, err);
     }
-  }, [entry, isWails, onRefreshDir, closeContextMenu]);
+  }, [entry, onRefreshDir, closeContextMenu]);
 
   return (
     <>
@@ -122,10 +113,7 @@ export default function TreeNode({ entry, depth = 0, onFileClick, onRefreshDir }
 
         {entry.isDir ? (
           <svg width="16" height="16" viewBox="0 0 24 24" fill={expanded ? '#dcb67a' : '#c09553'} stroke="none">
-            <path d={expanded
-              ? "M3 7V17C3 18.1 3.9 19 5 19H19C20.1 19 21 18.1 21 17V9C21 7.9 20.1 7 19 7H13L11 5H5C3.9 5 3 5.9 3 7Z"
-              : "M3 7V17C3 18.1 3.9 19 5 19H19C20.1 19 21 18.1 21 17V9C21 7.9 20.1 7 19 7H13L11 5H5C3.9 5 3 5.9 3 7Z"
-            } />
+            <path d={FOLDER_ICON_PATH} />
           </svg>
         ) : (
           <span className="tree-node-file-icon" style={{ color: getExtColor(entry.extension) }}>

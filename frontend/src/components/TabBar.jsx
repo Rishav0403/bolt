@@ -1,30 +1,6 @@
 import React from 'react';
 import { useEditor } from '../contexts/EditorContext';
-
-// File extension to icon mapping
-function getFileIcon(name) {
-  const ext = name.split('.').pop()?.toLowerCase();
-  const iconMap = {
-    js: { color: '#e8d44d', label: 'JS' },
-    jsx: { color: '#61dafb', label: 'JSX' },
-    ts: { color: '#3178c6', label: 'TS' },
-    tsx: { color: '#3178c6', label: 'TSX' },
-    go: { color: '#00add8', label: 'GO' },
-    py: { color: '#3776ab', label: 'PY' },
-    rs: { color: '#dea584', label: 'RS' },
-    html: { color: '#e34c26', label: 'H' },
-    css: { color: '#563d7c', label: 'C' },
-    json: { color: '#cbcb41', label: '{}' },
-    md: { color: '#519aba', label: 'M' },
-    yaml: { color: '#cb171e', label: 'Y' },
-    yml: { color: '#cb171e', label: 'Y' },
-    sh: { color: '#89e051', label: '$' },
-    sql: { color: '#e38c00', label: 'Q' },
-    xml: { color: '#e37933', label: 'X' },
-    mod: { color: '#00add8', label: 'GO' },
-  };
-  return iconMap[ext] || { color: '#969696', label: '.' };
-}
+import { getFileIcon } from '../utils/fileIcons';
 
 export default function TabBar() {
   const { tabs, activeTabId, setActiveTabId, closeTab } = useEditor();

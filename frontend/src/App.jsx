@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { EditorProvider } from './contexts/EditorContext';
 import { CommandProvider, useCommands } from './contexts/CommandContext';
 import ActivityBar from './components/ActivityBar';
@@ -7,15 +7,14 @@ import TabBar from './components/TabBar';
 import EditorPane from './components/EditorPane';
 import StatusBar from './components/StatusBar';
 import CommandPalette from './components/CommandPalette';
+import { isWailsEnv, getWailsFs } from './utils/wails';
 
 function AppInner() {
   const [activeView, setActiveView] = useState('explorer');
   const [rootPath, setRootPath] = useState('');
   const { registerCommands, openPalette } = useCommands();
 
-  const isWails = typeof window !== 'undefined' && window.go?.fs?.Service;
-
-  // Register built-in commands
+  // Register built-in commands (keyboard shortcuts are dispatched by CommandContext)
   useEffect(() => {
     registerCommands([
       {
@@ -23,9 +22,10 @@ function AppInner() {
         label: 'Open Folder...',
         keybinding: 'Ctrl+O',
         handler: async () => {
-          if (isWails) {
+          const fs = getWailsFs();
+          if (fs) {
             try {
-              const path = await window.go.fs.Service.OpenFolderDialog();
+              const path = await fs.OpenFolderDialog();
               if (path) setRootPath(path);
             } catch (err) {
               console.error('Failed to open folder:', err);
@@ -70,29 +70,7 @@ function AppInner() {
         handler: () => setActiveView('extensions'),
       },
     ]);
-  }, [registerCommands, openPalette, isWails]);
-
-  // Global keyboard shortcuts
-  useEffect(() => {
-    const handler = (e) => {
-      // Ctrl+B: Toggle sidebar
-      if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
-        e.preventDefault();
-        setActiveView(prev => prev ? null : 'explorer');
-      }
-      // Ctrl+O: Open folder
-      if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
-        e.preventDefault();
-        if (isWails) {
-          window.go.fs.Service.OpenFolderDialog().then(path => {
-            if (path) setRootPath(path);
-          });
-        }
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [isWails]);
+  }, [registerCommands, openPalette]);
 
   return (
     <div className="app-shell">

@@ -15,8 +15,14 @@ func TestDefaultSettings(t *testing.T) {
 	if s.FontSize != 14 {
 		t.Errorf("expected fontSize 14, got %d", s.FontSize)
 	}
+	if s.FontFamily != "'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace" {
+		t.Errorf("expected default fontFamily, got '%s'", s.FontFamily)
+	}
 	if s.TabSize != 4 {
 		t.Errorf("expected tabSize 4, got %d", s.TabSize)
+	}
+	if s.WordWrap != "off" {
+		t.Errorf("expected wordWrap 'off', got '%s'", s.WordWrap)
 	}
 	if s.Minimap != true {
 		t.Error("expected minimap to be true")
@@ -96,6 +102,55 @@ func TestUpdateSetting_Minimap(t *testing.T) {
 	got := svc.GetSettings()
 	if got.Minimap != false {
 		t.Error("expected minimap to be false")
+	}
+}
+
+func TestUpdateSetting_UnknownKey(t *testing.T) {
+	svc := &Service{
+		settings: DefaultSettings(),
+		filePath: filepath.Join(t.TempDir(), "settings.json"),
+	}
+
+	err := svc.UpdateSetting("unknownKey", "value")
+	if err == nil {
+		t.Fatal("expected error for unknown key, got nil")
+	}
+
+	// Settings should remain unchanged
+	got := svc.GetSettings()
+	if got.Theme != "vs-dark" {
+		t.Errorf("expected theme to remain 'vs-dark', got '%s'", got.Theme)
+	}
+}
+
+func TestUpdateSetting_WrongType(t *testing.T) {
+	svc := &Service{
+		settings: DefaultSettings(),
+		filePath: filepath.Join(t.TempDir(), "settings.json"),
+	}
+
+	// Pass a string for fontSize (expects float64)
+	err := svc.UpdateSetting("fontSize", "not-a-number")
+	if err == nil {
+		t.Fatal("expected error for wrong type on fontSize, got nil")
+	}
+
+	// FontSize should remain unchanged
+	got := svc.GetSettings()
+	if got.FontSize != 14 {
+		t.Errorf("expected fontSize to remain 14, got %d", got.FontSize)
+	}
+
+	// Pass a float64 for theme (expects string)
+	err = svc.UpdateSetting("theme", float64(42))
+	if err == nil {
+		t.Fatal("expected error for wrong type on theme, got nil")
+	}
+
+	// Pass a string for minimap (expects bool)
+	err = svc.UpdateSetting("minimap", "true")
+	if err == nil {
+		t.Fatal("expected error for wrong type on minimap, got nil")
 	}
 }
 

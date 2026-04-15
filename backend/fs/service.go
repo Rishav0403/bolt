@@ -2,6 +2,7 @@ package fs
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -39,6 +40,27 @@ func (s *Service) OpenFolderDialog() (string, error) {
 func (s *Service) ListDir(path string) ([]FileEntry, error) {
 	path = filepath.Clean(path)
 
+	result, err := s.buildEntries(path)
+	if err != nil {
+		return nil, err
+	}
+
+	// For directories, load one level of children so the tree can show expand arrows
+	for i := range result {
+		if result[i].IsDir {
+			children, err := s.buildEntries(result[i].Path)
+			if err == nil {
+				result[i].Children = children
+			}
+		}
+	}
+
+	return result, nil
+}
+
+// buildEntries reads directory entries, filters hidden files, constructs FileEntry structs,
+// and returns them sorted (directories first, then alphabetically).
+func (s *Service) buildEntries(path string) ([]FileEntry, error) {
 	entries, err := os.ReadDir(path)
 	if err != nil {
 		return nil, err
@@ -63,54 +85,10 @@ func (s *Service) ListDir(path string) ([]FileEntry, error) {
 			fe.Extension = strings.TrimPrefix(filepath.Ext(name), ".")
 		}
 
-		// For directories, load one level of children so the tree can show expand arrows
-		if entry.IsDir() {
-			children, err := s.listDirShallow(fullPath)
-			if err == nil {
-				fe.Children = children
-			}
-		}
-
 		result = append(result, fe)
 	}
 
 	// Sort: directories first, then files, alphabetically within each group
-	sort.Slice(result, func(i, j int) bool {
-		if result[i].IsDir != result[j].IsDir {
-			return result[i].IsDir
-		}
-		return strings.ToLower(result[i].Name) < strings.ToLower(result[j].Name)
-	})
-
-	return result, nil
-}
-
-// listDirShallow returns entries for a directory without recursing into subdirectories.
-func (s *Service) listDirShallow(path string) ([]FileEntry, error) {
-	entries, err := os.ReadDir(path)
-	if err != nil {
-		return nil, err
-	}
-
-	var result []FileEntry
-	for _, entry := range entries {
-		name := entry.Name()
-		if strings.HasPrefix(name, ".") {
-			continue
-		}
-
-		fullPath := filepath.Join(path, name)
-		fe := FileEntry{
-			Name:  name,
-			Path:  fullPath,
-			IsDir: entry.IsDir(),
-		}
-		if !entry.IsDir() {
-			fe.Extension = strings.TrimPrefix(filepath.Ext(name), ".")
-		}
-		result = append(result, fe)
-	}
-
 	sort.Slice(result, func(i, j int) bool {
 		if result[i].IsDir != result[j].IsDir {
 			return result[i].IsDir
@@ -142,13 +120,17 @@ func (s *Service) WriteFile(path string, content string) error {
 }
 
 // CreateFile creates a new empty file at the given path.
+// Returns an error if a file already exists at that path to prevent accidental overwrites.
 func (s *Service) CreateFile(path string) error {
 	path = filepath.Clean(path)
+	if _, err := os.Stat(path); err == nil {
+		return fmt.Errorf("file already exists: %s", path)
+	}
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
-	f, err := os.Create(path)
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
 	if err != nil {
 		return err
 	}
@@ -168,8 +150,12 @@ func (s *Service) DeletePath(path string) error {
 }
 
 // RenamePath renames/moves a file or directory.
+// Returns an error if the destination already exists to prevent accidental overwrites.
 func (s *Service) RenamePath(oldPath string, newPath string) error {
 	oldPath = filepath.Clean(oldPath)
 	newPath = filepath.Clean(newPath)
+	if _, err := os.Stat(newPath); err == nil {
+		return fmt.Errorf("destination already exists: %s", newPath)
+	}
 	return os.Rename(oldPath, newPath)
 }
