@@ -1,18 +1,37 @@
 package fs
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+
+	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // Service provides file system operations exposed to the frontend via Wails bindings.
-type Service struct{}
+type Service struct {
+	ctx context.Context
+}
 
 // NewService creates a new file system service.
 func NewService() *Service {
 	return &Service{}
+}
+
+// SetContext stores the Wails runtime context, required for native dialogs.
+// Must be called from the app's OnStartup hook.
+func (s *Service) SetContext(ctx context.Context) {
+	s.ctx = ctx
+}
+
+// OpenFolderDialog opens a native directory picker dialog and returns the selected path.
+// Returns an empty string if the user cancels.
+func (s *Service) OpenFolderDialog() (string, error) {
+	return wailsruntime.OpenDirectoryDialog(s.ctx, wailsruntime.OpenDialogOptions{
+		Title: "Open Folder",
+	})
 }
 
 // ListDir returns the directory tree for the given path (one level deep).

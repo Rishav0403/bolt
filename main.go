@@ -15,14 +15,14 @@ import (
 var assets embed.FS
 
 func main() {
-	app := NewApp()
 	fsService := fs.NewService()
 	settingsService := settings.NewService()
+	app := NewApp(fsService)
 
 	err := wails.Run(&options.App{
-		Title:  "Bolt",
-		Width:  1280,
-		Height: 800,
+		Title:    "Bolt",
+		Width:    1280,
+		Height:   800,
 		MinWidth: 800,
 		MinHeight: 600,
 		AssetServer: &assetserver.Options{
