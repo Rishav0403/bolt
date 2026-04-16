@@ -7,6 +7,32 @@ const EditorContext = createContext();
 export function EditorProvider(props) {
   const [tabs, setTabs] = createStore([]);
   const [activeTabId, setActiveTabId] = createSignal(null);
+  const [cursorPosition, setCursorPosition] = createSignal({ line: 1, column: 1, selected: 0 });
+
+  // Split pane management
+  let nextPaneId = 1; // monotonically increasing counter to avoid ID collisions after close+split
+  const [panes, setPanes] = createSignal([
+    { id: 'pane-0' }
+  ]);
+  const [activePaneIndex, setActivePaneIndex] = createSignal(0);
+
+  function splitPane() {
+    setPanes(prev => {
+      const newId = 'pane-' + nextPaneId++;
+      return [...prev, { id: newId }];
+    });
+    setActivePaneIndex(prev => prev + 1);
+  }
+
+  function closePane(index) {
+    setPanes(prev => {
+      if (prev.length <= 1) return prev; // can't close last pane
+      const updated = [...prev];
+      updated.splice(index, 1);
+      return updated;
+    });
+    setActivePaneIndex(prev => Math.min(prev, panes().length - 1));
+  }
 
   // Ref-based content store: avoids triggering reactivity on every keystroke.
   // Keys are tab IDs, values are the latest editor content strings.
@@ -100,6 +126,13 @@ export function EditorProvider(props) {
     syncModifiedFlag,
     getTabContent,
     markTabSaved,
+    cursorPosition,
+    setCursorPosition,
+    panes,
+    activePaneIndex,
+    setActivePaneIndex,
+    splitPane,
+    closePane,
   };
 
   return (

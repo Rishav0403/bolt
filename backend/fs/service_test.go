@@ -3,6 +3,7 @@ package fs
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -280,5 +281,63 @@ func TestRenamePath_ExistingDestination(t *testing.T) {
 	}
 	if string(data) != "# Readme" {
 		t.Errorf("destination file content was modified: got '%s'", string(data))
+	}
+}
+
+func TestListAllFiles(t *testing.T) {
+	svc := NewService()
+	dir := t.TempDir()
+
+	// Create test structure
+	os.MkdirAll(filepath.Join(dir, "src", "components"), 0755)
+	os.MkdirAll(filepath.Join(dir, ".git", "objects"), 0755)
+	os.MkdirAll(filepath.Join(dir, "node_modules", "pkg"), 0755)
+	os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main"), 0644)
+	os.WriteFile(filepath.Join(dir, "src", "app.js"), []byte(""), 0644)
+	os.WriteFile(filepath.Join(dir, "src", "components", "Button.jsx"), []byte(""), 0644)
+	os.WriteFile(filepath.Join(dir, ".git", "config"), []byte(""), 0644)
+	os.WriteFile(filepath.Join(dir, "node_modules", "pkg", "index.js"), []byte(""), 0644)
+
+	files, err := svc.ListAllFiles(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Should include project files but not .git or node_modules
+	fileSet := make(map[string]bool)
+	for _, f := range files {
+		fileSet[f] = true
+	}
+
+	if !fileSet["main.go"] {
+		t.Error("expected main.go in results")
+	}
+	if !fileSet[filepath.Join("src", "app.js")] {
+		t.Error("expected src/app.js in results")
+	}
+	if !fileSet[filepath.Join("src", "components", "Button.jsx")] {
+		t.Error("expected src/components/Button.jsx in results")
+	}
+	// Should NOT include .git or node_modules files
+	for _, f := range files {
+		if strings.Contains(f, ".git") {
+			t.Errorf("should not include .git files, got: %s", f)
+		}
+		if strings.Contains(f, "node_modules") {
+			t.Errorf("should not include node_modules files, got: %s", f)
+		}
+	}
+}
+
+func TestListAllFiles_EmptyDir(t *testing.T) {
+	svc := NewService()
+	dir := t.TempDir()
+
+	files, err := svc.ListAllFiles(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != 0 {
+		t.Errorf("expected 0 files, got %d", len(files))
 	}
 }

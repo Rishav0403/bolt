@@ -159,3 +159,42 @@ func (s *Service) RenamePath(oldPath string, newPath string) error {
 	}
 	return os.Rename(oldPath, newPath)
 }
+
+// ListAllFiles recursively walks the directory tree and returns a flat list of
+// relative file paths, skipping hidden directories and common non-project dirs.
+func (s *Service) ListAllFiles(rootPath string) ([]string, error) {
+	rootPath = filepath.Clean(rootPath)
+	var files []string
+
+	skipDirs := map[string]bool{
+		".git": true, "node_modules": true, ".bolt": true,
+		"vendor": true, "__pycache__": true, ".next": true,
+		"dist": true, "build": true,
+	}
+
+	err := filepath.WalkDir(rootPath, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil // skip unreadable entries
+		}
+		name := d.Name()
+		if d.IsDir() {
+			if strings.HasPrefix(name, ".") && path != rootPath {
+				return filepath.SkipDir
+			}
+			if skipDirs[name] {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		rel, err := filepath.Rel(rootPath, path)
+		if err != nil {
+			return nil
+		}
+		files = append(files, rel)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return files, nil
+}

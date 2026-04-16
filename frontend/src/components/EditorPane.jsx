@@ -1,4 +1,4 @@
-import { createEffect, onMount, onCleanup, untrack } from 'solid-js';
+import { createEffect, onMount, onCleanup, untrack, Show, For } from 'solid-js';
 import * as monaco from 'monaco-editor';
 import { useEditor } from '../contexts/EditorContext';
 import { useSettings } from '../contexts/SettingsContext';
@@ -39,7 +39,7 @@ self.MonacoEnvironment = {
 };
 
 export default function EditorPane() {
-  const { tabs, activeTab, updateTabContent, closeTab, markTabSaved, syncModifiedFlag, getTabContent } = useEditor();
+  const { tabs, activeTab, updateTabContent, closeTab, markTabSaved, syncModifiedFlag, getTabContent, setCursorPosition, splitPane, panes, activePaneIndex, setActivePaneIndex, closePane } = useEditor();
   const { settings } = useSettings();
 
   let containerRef;
@@ -116,9 +116,18 @@ export default function EditorPane() {
     closeTab(tab.id);
   }
 
+  function goToLine(lineNumber) {
+    if (!editorInstance) return;
+    editorInstance.revealLineInCenter(lineNumber);
+    editorInstance.setPosition({ lineNumber, column: 1 });
+    editorInstance.focus();
+  }
+
   // Expose imperative handles so App can wire them into CommandContext
   EditorPane.saveActiveTab = saveActiveTab;
   EditorPane.closeActiveTab = closeActiveTab;
+  EditorPane.goToLine = goToLine;
+  EditorPane.splitEditor = null; // Will be set after mount
 
   onMount(() => {
     editorInstance = monaco.editor.create(containerRef, {
@@ -144,6 +153,22 @@ export default function EditorPane() {
         bracketPairs: true,
         indentation: true,
       },
+    });
+
+    // Track cursor position for the status bar
+    editorInstance.onDidChangeCursorPosition((e) => {
+      const pos = editorInstance.getPosition();
+      const sel = editorInstance.getSelection();
+      const model = editorInstance.getModel();
+      let selected = 0;
+      if (sel && model && !sel.isEmpty()) {
+        selected = model.getValueInRange(sel).length;
+      }
+      setCursorPosition({
+        line: pos?.lineNumber || 1,
+        column: pos?.column || 1,
+        selected,
+      });
     });
 
     // Listen for content changes -- guard against cross-tab corruption during model switches
@@ -198,6 +223,9 @@ export default function EditorPane() {
         monaco.editor.setTheme(s.theme);
       }
     });
+
+    // Split editor support
+    EditorPane.splitEditor = splitPane;
 
     // If there's already an active tab, show it
     const tab = activeTab();
@@ -284,11 +312,45 @@ export default function EditorPane() {
           </div>
         </div>
       </div>
-      <div
-        class="editor-pane"
-        style={{ flex: '1', overflow: 'hidden', display: activeTab() ? 'flex' : 'none' }}
-      >
-        <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+      <div class="editor-split-container" style={{ display: activeTab() ? 'flex' : 'none', flex: '1', overflow: 'hidden' }}>
+        <div
+          class={`editor-pane ${activePaneIndex() === 0 ? 'active-pane' : ''}`}
+          style={{ flex: '1', overflow: 'hidden', display: 'flex', 'flex-direction': 'column' }}
+          onClick={() => setActivePaneIndex(0)}
+        >
+          <Show when={panes().length > 1}>
+            <div class="editor-pane-header">
+              <span class="editor-pane-title">{activeTab()?.name || 'Untitled'}</span>
+            </div>
+          </Show>
+          <div ref={containerRef} style={{ width: '100%', flex: '1' }} />
+        </div>
+        <For each={panes().slice(1)}>
+          {(pane, i) => (
+            <>
+              <div class="editor-split-handle" />
+              <div
+                class={`editor-pane ${activePaneIndex() === i() + 1 ? 'active-pane' : ''}`}
+                style={{ flex: '1', overflow: 'hidden', display: 'flex', 'flex-direction': 'column' }}
+                onClick={() => setActivePaneIndex(i() + 1)}
+              >
+                <div class="editor-pane-header">
+                  <span class="editor-pane-title">Split Pane</span>
+                  <button
+                    class="editor-pane-close"
+                    onClick={(e) => { e.stopPropagation(); closePane(i() + 1); }}
+                    title="Close Pane"
+                  >
+                    ×
+                  </button>
+                </div>
+                <div class="editor-pane-placeholder">
+                  <span>Open a file to view it here</span>
+                </div>
+              </div>
+            </>
+          )}
+        </For>
       </div>
     </>
   );

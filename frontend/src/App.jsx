@@ -1,4 +1,4 @@
-import { createSignal, onMount } from 'solid-js';
+import { createSignal, onMount, Show } from 'solid-js';
 import { EditorProvider } from './contexts/EditorContext';
 import { CommandProvider, useCommands } from './contexts/CommandContext';
 import { TerminalProvider, useTerminal } from './contexts/TerminalContext';
@@ -11,12 +11,16 @@ import Breadcrumbs from './components/Breadcrumbs';
 import EditorPane from './components/EditorPane';
 import StatusBar from './components/StatusBar';
 import CommandPalette from './components/CommandPalette';
+import QuickFileOpen from './components/QuickFileOpen';
 import TerminalPanel from './components/TerminalPanel';
+import KeyboardShortcutsPanel from './components/KeyboardShortcutsPanel';
 import { getWailsFs } from './utils/wails';
 
 function AppInner() {
   const [activeView, setActiveView] = createSignal('explorer');
   const [rootPath, setRootPath] = createSignal('');
+  const [shortcutsVisible, setShortcutsVisible] = createSignal(false);
+  const [quickOpenVisible, setQuickOpenVisible] = createSignal(false);
   const { registerCommands, openPalette } = useCommands();
   const { togglePanel, createTerminal: newTerm } = useTerminal();
 
@@ -90,6 +94,26 @@ function AppInner() {
         handler: () => EditorPane.closeActiveTab?.(),
       },
       {
+        id: 'splitEditor',
+        label: 'Split Editor Right',
+        keybinding: 'Ctrl+\\',
+        handler: () => EditorPane.splitEditor?.(),
+      },
+      {
+        id: 'goToLine',
+        label: 'Go to Line...',
+        keybinding: 'Ctrl+G',
+        handler: () => {
+          const line = prompt('Go to Line:');
+          if (line) {
+            const num = parseInt(line, 10);
+            if (!isNaN(num) && num > 0) {
+              EditorPane.goToLine?.(num);
+            }
+          }
+        },
+      },
+      {
         id: 'toggleTerminal',
         label: 'Toggle Terminal',
         keybinding: 'Ctrl+`',
@@ -99,6 +123,18 @@ function AppInner() {
         id: 'newTerminal',
         label: 'New Terminal',
         handler: () => newTerm(),
+      },
+      {
+        id: 'quickOpen',
+        label: 'Quick Open File',
+        keybinding: 'Ctrl+P',
+        handler: () => setQuickOpenVisible(true),
+      },
+      {
+        id: 'keyboardShortcuts',
+        label: 'Keyboard Shortcuts',
+        keybinding: 'Ctrl+K',
+        handler: () => setShortcutsVisible(prev => !prev),
       },
     ]);
   });
@@ -119,6 +155,10 @@ function AppInner() {
           <TerminalPanel />
           <StatusBar />
           <CommandPalette />
+          <Show when={shortcutsVisible()}>
+            <KeyboardShortcutsPanel onClose={() => setShortcutsVisible(false)} />
+          </Show>
+          <QuickFileOpen isOpen={quickOpenVisible} onClose={() => setQuickOpenVisible(false)} rootPath={rootPath} />
         </div>
       </GitProvider>
     </SettingsProvider>

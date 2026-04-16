@@ -553,3 +553,187 @@ func TestGetLog_PipeInMessage(t *testing.T) {
 		t.Errorf("expected message with pipe, got %q", entries[0].Message)
 	}
 }
+
+func TestListBranches(t *testing.T) {
+	dir, svc := setupTestRepo(t)
+
+	branches, err := svc.ListBranches(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(branches) == 0 {
+		t.Fatal("expected at least one branch")
+	}
+
+	// The default branch should be current
+	found := false
+	for _, b := range branches {
+		if b.IsCurrent {
+			found = true
+			if b.LastCommit == "" {
+				t.Error("current branch should have a commit hash")
+			}
+		}
+	}
+	if !found {
+		t.Error("expected one branch to be marked as current")
+	}
+}
+
+func TestListBranches_NamePreserved(t *testing.T) {
+	dir, svc := setupTestRepo(t)
+
+	// Create multiple branches and verify their names are not corrupted.
+	// The old code used strings.TrimLeft(line, "* ") which treats the second
+	// argument as a character set, not a prefix — so it would strip any
+	// leading '*' or ' ' characters from the branch name itself.
+	branchNames := []string{"another-feature", "fix-spacing"}
+	for _, name := range branchNames {
+		runCmd(t, dir, "git", "branch", name)
+	}
+
+	branches, err := svc.ListBranches(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	nameSet := make(map[string]bool)
+	for _, b := range branches {
+		nameSet[b.Name] = true
+	}
+
+	for _, expected := range branchNames {
+		if !nameSet[expected] {
+			t.Errorf("expected branch %q in list, got names: %v", expected, nameSet)
+		}
+	}
+}
+
+func TestCreateBranch(t *testing.T) {
+	dir, svc := setupTestRepo(t)
+
+	err := svc.CreateBranch(dir, "feature-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify we're on the new branch
+	info, err := svc.GetBranch(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Name != "feature-test" {
+		t.Errorf("expected branch 'feature-test', got '%s'", info.Name)
+	}
+}
+
+func TestCheckoutBranch(t *testing.T) {
+	dir, svc := setupTestRepo(t)
+
+	// Record the original branch name before switching away
+	origInfo, err := svc.GetBranch(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	originalBranch := origInfo.Name
+
+	// Create a new branch (switches to it)
+	err = svc.CreateBranch(dir, "other-branch")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Switch back to the original branch
+	err = svc.CheckoutBranch(dir, originalBranch)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	info, err := svc.GetBranch(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Name != originalBranch {
+		t.Errorf("expected branch '%s', got '%s'", originalBranch, info.Name)
+	}
+}
+
+func TestDeleteBranch(t *testing.T) {
+	dir, svc := setupTestRepo(t)
+
+	// Record the original branch name before switching away
+	origInfo, err := svc.GetBranch(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	originalBranch := origInfo.Name
+
+	// Create and switch away from the branch to delete
+	err = svc.CreateBranch(dir, "to-delete")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Switch back to original branch so we can delete
+	svc.CheckoutBranch(dir, originalBranch)
+
+	err = svc.DeleteBranch(dir, "to-delete")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify branch is gone
+	branches, _ := svc.ListBranches(dir)
+	for _, b := range branches {
+		if b.Name == "to-delete" {
+			t.Error("branch 'to-delete' should have been deleted")
+		}
+	}
+}
+
+func TestGetFileAtRevision(t *testing.T) {
+	dir, svc := setupTestRepo(t)
+
+	// Write a known file, commit it, then modify it
+	os.WriteFile(filepath.Join(dir, "revision-test.txt"), []byte("version 1"), 0644)
+	exec.Command("git", "-C", dir, "add", "revision-test.txt").Run()
+	exec.Command("git", "-C", dir, "commit", "-m", "add revision-test").Run()
+
+	// Modify the file
+	os.WriteFile(filepath.Join(dir, "revision-test.txt"), []byte("version 2"), 0644)
+
+	// HEAD should return version 1
+	content, err := svc.GetFileAtRevision(dir, "revision-test.txt", "HEAD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if content != "version 1" {
+		t.Errorf("expected 'version 1', got '%s'", content)
+	}
+
+	// Stage the modified file
+	exec.Command("git", "-C", dir, "add", "revision-test.txt").Run()
+
+	// :0 (index) should return version 2
+	content, err = svc.GetFileAtRevision(dir, "revision-test.txt", ":0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if content != "version 2" {
+		t.Errorf("expected 'version 2', got '%s'", content)
+	}
+}
+
+func TestGetFileAtRevision_NewFile(t *testing.T) {
+	dir, svc := setupTestRepo(t)
+
+	// A file that doesn't exist at HEAD should return empty string
+	content, err := svc.GetFileAtRevision(dir, "nonexistent.txt", "HEAD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if content != "" {
+		t.Errorf("expected empty string for nonexistent file, got '%s'", content)
+	}
+}

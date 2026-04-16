@@ -1495,3 +1495,405 @@ kbd:hover {
   color: var(--text-bright);
   background: var(--bg-active);
 }
+
+/* ===== Quick File Open (Phase 4) ===== */
+.quick-file-name {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.quick-file-dir {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  margin-left: var(--space-sm);
+}
+
+/* ===== Split Editor Panes (Phase 4) ===== */
+.editor-split-container {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  height: 100%;
+}
+
+.editor-pane.active-pane {
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+}
+
+.editor-pane-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-sm);
+  height: 24px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.editor-pane-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-pane-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  padding: 0 var(--space-xs);
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.editor-pane-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
+
+.editor-split-handle {
+  width: 4px;
+  background: var(--border);
+  cursor: col-resize;
+  transition: background var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.editor-split-handle:hover {
+  background: var(--accent);
+}
+
+.editor-pane-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+/* ===== Keyboard Shortcuts Panel (Phase 4) ===== */
+.shortcuts-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--bg-primary);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: fadeIn var(--transition-base) ease-out;
+}
+
+.shortcuts-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--border);
+}
+
+.shortcuts-title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.shortcuts-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: var(--text-xl);
+  cursor: pointer;
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.shortcuts-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
+
+.shortcuts-search {
+  padding: var(--space-sm) var(--space-lg);
+  border-bottom: 1px solid var(--border);
+}
+
+.shortcuts-search-input {
+  width: 100%;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  outline: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.shortcuts-search-input:focus {
+  border-color: var(--accent);
+  box-shadow: var(--focus-ring);
+}
+
+.shortcuts-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.shortcuts-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-md) var(--space-lg);
+}
+
+.shortcuts-category {
+  margin-bottom: var(--space-lg);
+}
+
+.shortcuts-category-title {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 var(--space-sm) 0;
+  padding-bottom: var(--space-xs);
+  border-bottom: 1px solid var(--border);
+}
+
+.shortcuts-table {
+  display: flex;
+  flex-direction: column;
+}
+
+.shortcuts-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast);
+}
+
+.shortcuts-row:hover {
+  background: var(--bg-active);
+}
+
+.shortcuts-command-name {
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+}
+
+.shortcuts-keybinding {
+  display: flex;
+  gap: var(--space-xs);
+  align-items: center;
+}
+
+.shortcuts-kbd {
+  display: inline-block;
+  padding: 2px 6px;
+  font-size: var(--text-xs);
+  font-family: inherit;
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2);
+}
+
+.shortcuts-empty {
+  text-align: center;
+  color: var(--text-muted);
+  padding: var(--space-xl);
+  font-size: var(--text-sm);
+}
+
+/* ===== Git Branches & Commit History (Phase 4) ===== */
+.git-branch-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-md);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast);
+}
+
+.git-branch-row:hover {
+  background: var(--bg-active);
+}
+
+.git-branch-row.current {
+  color: var(--accent);
+}
+
+.git-branch-icon {
+  font-size: var(--text-xs);
+  flex-shrink: 0;
+}
+
+.git-branch-row-name {
+  flex: 1;
+  font-size: var(--text-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.git-branch-row-commit {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  font-family: monospace;
+}
+
+.git-new-branch {
+  padding: var(--space-xs) var(--space-md);
+}
+
+.git-new-branch-input {
+  width: 100%;
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  outline: none;
+}
+
+.git-new-branch-input:focus {
+  border-color: var(--accent);
+  box-shadow: var(--focus-ring);
+}
+
+.git-log-row {
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  transition: background var(--transition-fast);
+}
+
+.git-log-row:hover {
+  background: var(--bg-active);
+}
+
+.git-log-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+
+.git-log-hash {
+  font-family: monospace;
+  font-size: var(--text-xs);
+  color: var(--accent);
+}
+
+.git-log-time {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.git-log-message {
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.git-log-author {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.git-load-more {
+  display: block;
+  width: 100%;
+  padding: var(--space-sm);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  margin-top: var(--space-sm);
+  transition: all var(--transition-fast);
+}
+
+.git-load-more:hover {
+  background: var(--bg-active);
+  color: var(--text-primary);
+}
+
+/* ===== Diff Viewer (Phase 4) ===== */
+.diff-viewer {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-sm);
+  overflow: hidden;
+  max-height: 400px;
+}
+
+.diff-viewer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-xs) var(--space-md);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+.diff-viewer-labels {
+  display: flex;
+  gap: var(--space-lg);
+  flex: 1;
+}
+
+.diff-viewer-label {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  font-family: monospace;
+}
+
+.diff-viewer-label.original {
+  color: var(--danger);
+}
+
+.diff-viewer-label.modified {
+  color: var(--success);
+}
+
+.diff-viewer-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  padding: 0 var(--space-xs);
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.diff-viewer-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
+
+.diff-viewer-container {
+  flex: 1;
+  min-height: 300px;
+}

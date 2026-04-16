@@ -20,11 +20,17 @@ export function GitProvider(props) {
   const [branch, setBranch] = createSignal(EMPTY_BRANCH);
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal(null);
+  const [branches, setBranches] = createSignal([]);
+  const [log, setLog] = createSignal([]);
+  const [logLoading, setLogLoading] = createSignal(false);
 
   const git = getWailsGit();
 
+  /** Helper to read the current root path, reducing repetition across async functions. */
+  const getRoot = () => props.rootPath?.() || '';
+
   const refresh = async () => {
-    const root = props.rootPath?.() || '';
+    const root = getRoot();
     if (!git) {
       // Demo mode
       setStatus(DEMO_STATUS);
@@ -51,7 +57,7 @@ export function GitProvider(props) {
   };
 
   const stageFile = async (path) => {
-    const root = props.rootPath?.() || '';
+    const root = getRoot();
     if (!git) {
       // Demo mode: toggle staged status
       setStatus(prev => prev.map(f => f.path === path ? { ...f, staged: true } : f));
@@ -64,7 +70,7 @@ export function GitProvider(props) {
   };
 
   const unstageFile = async (path) => {
-    const root = props.rootPath?.() || '';
+    const root = getRoot();
     if (!git) {
       setStatus(prev => prev.map(f => f.path === path ? { ...f, staged: false } : f));
       return;
@@ -76,7 +82,7 @@ export function GitProvider(props) {
   };
 
   const stageAll = async () => {
-    const root = props.rootPath?.() || '';
+    const root = getRoot();
     if (!git) {
       setStatus(prev => prev.map(f => ({ ...f, staged: true })));
       return;
@@ -88,7 +94,7 @@ export function GitProvider(props) {
   };
 
   const unstageAll = async () => {
-    const root = props.rootPath?.() || '';
+    const root = getRoot();
     if (!git) {
       setStatus(prev => prev.map(f => ({ ...f, staged: false })));
       return;
@@ -100,7 +106,7 @@ export function GitProvider(props) {
   };
 
   const commit = async (message) => {
-    const root = props.rootPath?.() || '';
+    const root = getRoot();
     if (!git) {
       // Demo mode: remove staged files from status
       setStatus(prev => prev.filter(f => !f.staged));
@@ -109,13 +115,103 @@ export function GitProvider(props) {
     try {
       await git.Commit(root, message);
       await refresh();
+      await fetchLog();
     } catch (err) { setError(err.message); }
+  };
+
+  const listBranches = async () => {
+    const root = getRoot();
+    if (!git) {
+      // Demo mode
+      setBranches([
+        { name: 'main', isCurrent: true, isRemote: false, lastCommit: 'a1b2c3d' },
+        { name: 'feature/login', isCurrent: false, isRemote: false, lastCommit: 'e4f5g6h' },
+        { name: 'fix/styles', isCurrent: false, isRemote: false, lastCommit: 'i7j8k9l' },
+      ]);
+      return;
+    }
+    if (!root) return;
+    try {
+      const result = await git.ListBranches(root);
+      setBranches(result || []);
+    } catch (err) { setError(err.message); }
+  };
+
+  const checkoutBranch = async (branchName) => {
+    const root = getRoot();
+    if (!git) {
+      // Demo mode: toggle current branch
+      setBranches(prev => prev.map(b => ({ ...b, isCurrent: b.name === branchName })));
+      setBranch(prev => ({ ...prev, name: branchName }));
+      return;
+    }
+    if (!root) return;
+    try {
+      await git.CheckoutBranch(root, branchName);
+      await refresh();
+      await listBranches();
+    } catch (err) { setError(err.message); }
+  };
+
+  const createBranch = async (branchName) => {
+    const root = getRoot();
+    if (!git) {
+      // Demo mode
+      setBranches(prev => [
+        ...prev.map(b => ({ ...b, isCurrent: false })),
+        { name: branchName, isCurrent: true, isRemote: false, lastCommit: 'new' }
+      ]);
+      setBranch(prev => ({ ...prev, name: branchName }));
+      return;
+    }
+    if (!root) return;
+    try {
+      await git.CreateBranch(root, branchName);
+      await refresh();
+      await listBranches();
+    } catch (err) { setError(err.message); }
+  };
+
+  const deleteBranch = async (branchName) => {
+    const root = getRoot();
+    if (!git) {
+      setBranches(prev => prev.filter(b => b.name !== branchName));
+      return;
+    }
+    if (!root) return;
+    try {
+      await git.DeleteBranch(root, branchName);
+      await listBranches();
+    } catch (err) { setError(err.message); }
+  };
+
+  const fetchLog = async (limit = 50) => {
+    const root = getRoot();
+    if (!git) {
+      // Demo mode
+      setLog([
+        { hash: 'a1b2c3d4e5f6', shortHash: 'a1b2c3d', message: 'feat: add git integration', author: 'Developer', relativeTime: '2 hours ago' },
+        { hash: 'b2c3d4e5f6g7', shortHash: 'b2c3d4e', message: 'fix: resolve merge conflict', author: 'Developer', relativeTime: '5 hours ago' },
+        { hash: 'c3d4e5f6g7h8', shortHash: 'c3d4e5f', message: 'chore: update dependencies', author: 'Developer', relativeTime: '1 day ago' },
+        { hash: 'd4e5f6g7h8i9', shortHash: 'd4e5f6g', message: 'feat: initial project setup', author: 'Developer', relativeTime: '3 days ago' },
+      ]);
+      return;
+    }
+    if (!root) return;
+    setLogLoading(true);
+    try {
+      const result = await git.GetLog(root, limit);
+      setLog(result || []);
+    } catch (err) { setError(err.message); }
+    finally { setLogLoading(false); }
   };
 
   // Auto-refresh when rootPath changes (accessing the signal for Solid tracking)
   createEffect(() => {
     props.rootPath?.();
     refresh();
+    listBranches();
+    fetchLog();
   });
 
   // Refresh on interval when component is mounted (every 5 seconds)
@@ -128,16 +224,11 @@ export function GitProvider(props) {
   });
 
   const value = {
-    status,
-    branch,
-    loading,
-    error,
-    refresh,
-    stageFile,
-    unstageFile,
-    stageAll,
-    unstageAll,
-    commit,
+    status, branch, loading, error,
+    refresh, stageFile, unstageFile, stageAll, unstageAll, commit,
+    branches, log, logLoading,
+    listBranches, checkoutBranch, createBranch, deleteBranch, fetchLog,
+    rootPath: props.rootPath,
   };
 
   return <GitContext.Provider value={value}>{props.children}</GitContext.Provider>;

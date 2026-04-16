@@ -5,7 +5,7 @@ import { useGit } from '../contexts/GitContext';
 import { GitBranchIcon, BoltIcon } from '../utils/icons';
 
 export default function StatusBar() {
-  const { activeTab } = useEditor();
+  const { activeTab, cursorPosition } = useEditor();
   const { terminals, togglePanel } = useTerminal();
   const { branch, status } = useGit();
 
@@ -33,7 +33,10 @@ export default function StatusBar() {
           </span>
         </Show>
         <Show when={activeTab()}>
-          <span class="status-bar-item">Ln 1, Col 1</span>
+          <span class="status-bar-item">
+            Ln {cursorPosition().line}, Col {cursorPosition().column}
+            {cursorPosition().selected > 0 ? ` (${cursorPosition().selected} selected)` : ''}
+          </span>
           <span class="status-bar-item">{activeTab().language || 'Plain Text'}</span>
           <span class="status-bar-item">UTF-8</span>
         </Show>
