@@ -34,6 +34,14 @@ type LogEntry struct {
 	RelativeTime string `json:"relativeTime"`
 }
 
+// BranchListEntry represents a branch in the repository.
+type BranchListEntry struct {
+	Name       string `json:"name"`
+	IsCurrent  bool   `json:"isCurrent"`
+	IsRemote   bool   `json:"isRemote"`
+	LastCommit string `json:"lastCommit"`
+}
+
 // Service provides git integration functionality by shelling out to the git CLI.
 type Service struct {
 	mu  sync.Mutex
@@ -362,4 +370,94 @@ func (s *Service) GetLog(rootPath string, limit int) ([]LogEntry, error) {
 	}
 
 	return entries, nil
+}
+
+// ListBranches returns all local and remote branches.
+func (s *Service) ListBranches(rootPath string) ([]BranchListEntry, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Get local branches with commit hash
+	output, err := s.runGitStdout(rootPath, "branch", "-v", "--no-color")
+	if err != nil {
+		return nil, err
+	}
+
+	if output == "" {
+		return []BranchListEntry{}, nil
+	}
+
+	var branches []BranchListEntry
+	lines := strings.Split(output, "\n")
+	for _, line := range lines {
+		if line == "" {
+			continue
+		}
+		isCurrent := strings.HasPrefix(line, "* ")
+		// Remove leading "* " or "  "
+		line = strings.TrimLeft(line, "* ")
+		line = strings.TrimSpace(line)
+
+		// Format: "branchname hash commit message..."
+		fields := strings.SplitN(line, " ", 3)
+		if len(fields) < 2 {
+			continue
+		}
+
+		name := fields[0]
+		commit := fields[1]
+
+		branches = append(branches, BranchListEntry{
+			Name:       name,
+			IsCurrent:  isCurrent,
+			IsRemote:   false,
+			LastCommit: commit,
+		})
+	}
+
+	return branches, nil
+}
+
+// CheckoutBranch switches to an existing branch.
+func (s *Service) CheckoutBranch(rootPath, branchName string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	_, err := s.runGit(rootPath, "checkout", branchName)
+	return err
+}
+
+// CreateBranch creates a new branch and switches to it.
+func (s *Service) CreateBranch(rootPath, branchName string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	_, err := s.runGit(rootPath, "checkout", "-b", branchName)
+	return err
+}
+
+// DeleteBranch deletes a local branch.
+func (s *Service) DeleteBranch(rootPath, branchName string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	_, err := s.runGit(rootPath, "branch", "-d", branchName)
+	return err
+}
+
+// GetFileAtRevision returns the content of a file at a specific git revision.
+// For example, revision "HEAD" returns the last committed version.
+// Revision ":0" returns the staged (index) version.
+// Returns empty string for files that don't exist at the given revision.
+func (s *Service) GetFileAtRevision(rootPath, filePath, revision string) (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	ref := revision + ":" + filePath
+	output, err := s.runGitStdout(rootPath, "show", ref)
+	if err != nil {
+		// File doesn't exist at this revision (e.g., new file)
+		return "", nil
+	}
+	return output, nil
 }
