@@ -27,37 +27,27 @@ export default function DiffViewer(props) {
       scrollBeyondLastLine: false,
       padding: { top: 8 },
     });
-  });
 
-  function updateModels() {
-    if (!diffEditor) return;
-    const original = props.originalContent || '';
-    const modified = props.modifiedContent || '';
-    const lang = props.language || 'plaintext';
-
-    const originalModel = monaco.editor.createModel(original, lang);
-    const modifiedModel = monaco.editor.createModel(modified, lang);
-
-    diffEditor.setModel({
-      original: originalModel,
-      modified: modifiedModel,
-    });
-  }
-
-  // Update when content changes
-  createEffect(() => {
-    const _o = props.originalContent;
-    const _m = props.modifiedContent;
-    const _l = props.language;
-    if (diffEditor) {
-      // Dispose old models
+    // Load initial models immediately after editor creation, then reactively
+    // update when props change. createEffect is placed inside onMount so that
+    // diffEditor is guaranteed to exist when the effect first runs.
+    createEffect(() => {
+      const _o = props.originalContent;
+      const _m = props.modifiedContent;
+      const _l = props.language;
+      // Dispose old models before creating new ones
       const model = diffEditor.getModel();
       if (model) {
         model.original?.dispose();
         model.modified?.dispose();
       }
-      updateModels();
-    }
+      const original = props.originalContent || '';
+      const modified = props.modifiedContent || '';
+      const lang = props.language || 'plaintext';
+      const originalModel = monaco.editor.createModel(original, lang);
+      const modifiedModel = monaco.editor.createModel(modified, lang);
+      diffEditor.setModel({ original: originalModel, modified: modifiedModel });
+    });
   });
 
   onCleanup(() => {
