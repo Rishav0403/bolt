@@ -12,14 +12,14 @@ export function EditorProvider(props) {
   // Split pane management
   let nextPaneId = 1; // monotonically increasing counter to avoid ID collisions after close+split
   const [panes, setPanes] = createSignal([
-    { id: 'pane-0', tabIds: [], activeTabId: null }
+    { id: 'pane-0' }
   ]);
   const [activePaneIndex, setActivePaneIndex] = createSignal(0);
 
   function splitPane() {
     setPanes(prev => {
       const newId = 'pane-' + nextPaneId++;
-      return [...prev, { id: newId, tabIds: [], activeTabId: null }];
+      return [...prev, { id: newId }];
     });
     setActivePaneIndex(prev => prev + 1);
   }

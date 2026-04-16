@@ -10,12 +10,12 @@ import { describe, it, expect } from 'vitest';
 
 // Mirror the pane management logic from EditorContext without SolidJS dependencies
 function createPaneManager() {
-  let panes = [{ id: 'pane-0', tabIds: [], activeTabId: null }];
+  let panes = [{ id: 'pane-0' }];
   let activePaneIndex = 0;
 
   function splitPane() {
     const newId = 'pane-' + panes.length;
-    panes = [...panes, { id: newId, tabIds: [], activeTabId: null }];
+    panes = [...panes, { id: newId }];
     activePaneIndex = activePaneIndex + 1;
   }
 
@@ -112,12 +112,11 @@ describe('Split Pane Management', () => {
     expect(mgr.getActivePane().id).toBe('pane-0');
   });
 
-  it('new panes should have empty tabIds and null activeTabId', () => {
+  it('new panes should have an id', () => {
     const mgr = createPaneManager();
     mgr.splitPane();
     const newPane = mgr.getPanes()[1];
-    expect(newPane.tabIds).toEqual([]);
-    expect(newPane.activeTabId).toBeNull();
+    expect(newPane.id).toBe('pane-1');
   });
 
   it('should handle closing middle pane correctly', () => {

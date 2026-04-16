@@ -335,9 +335,7 @@ export default function EditorPane() {
                 onClick={() => setActivePaneIndex(i() + 1)}
               >
                 <div class="editor-pane-header">
-                  <span class="editor-pane-title">
-                    {pane.activeTabId ? 'Split View' : 'Empty Pane'}
-                  </span>
+                  <span class="editor-pane-title">Split Pane</span>
                   <button
                     class="editor-pane-close"
                     onClick={(e) => { e.stopPropagation(); closePane(i() + 1); }}
