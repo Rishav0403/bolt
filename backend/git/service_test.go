@@ -581,6 +581,35 @@ func TestListBranches(t *testing.T) {
 	}
 }
 
+func TestListBranches_NamePreserved(t *testing.T) {
+	dir, svc := setupTestRepo(t)
+
+	// Create multiple branches and verify their names are not corrupted.
+	// The old code used strings.TrimLeft(line, "* ") which treats the second
+	// argument as a character set, not a prefix — so it would strip any
+	// leading '*' or ' ' characters from the branch name itself.
+	branchNames := []string{"another-feature", "fix-spacing"}
+	for _, name := range branchNames {
+		runCmd(t, dir, "git", "branch", name)
+	}
+
+	branches, err := svc.ListBranches(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	nameSet := make(map[string]bool)
+	for _, b := range branches {
+		nameSet[b.Name] = true
+	}
+
+	for _, expected := range branchNames {
+		if !nameSet[expected] {
+			t.Errorf("expected branch %q in list, got names: %v", expected, nameSet)
+		}
+	}
+}
+
 func TestCreateBranch(t *testing.T) {
 	dir, svc := setupTestRepo(t)
 
@@ -602,27 +631,20 @@ func TestCreateBranch(t *testing.T) {
 func TestCheckoutBranch(t *testing.T) {
 	dir, svc := setupTestRepo(t)
 
-	// Create a new branch first
-	err := svc.CreateBranch(dir, "other-branch")
+	// Record the original branch name before switching away
+	origInfo, err := svc.GetBranch(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	originalBranch := origInfo.Name
+
+	// Create a new branch (switches to it)
+	err = svc.CreateBranch(dir, "other-branch")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Switch back to the original branch
-	// Get the original branch name first
-	branches, _ := svc.ListBranches(dir)
-	originalBranch := ""
-	for _, b := range branches {
-		if b.Name != "other-branch" {
-			originalBranch = b.Name
-			break
-		}
-	}
-	if originalBranch == "" {
-		// Fallback: try common names
-		originalBranch = "main"
-	}
-
 	err = svc.CheckoutBranch(dir, originalBranch)
 	if err != nil {
 		t.Fatal(err)
@@ -640,21 +662,20 @@ func TestCheckoutBranch(t *testing.T) {
 func TestDeleteBranch(t *testing.T) {
 	dir, svc := setupTestRepo(t)
 
+	// Record the original branch name before switching away
+	origInfo, err := svc.GetBranch(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	originalBranch := origInfo.Name
+
 	// Create and switch away from the branch to delete
-	err := svc.CreateBranch(dir, "to-delete")
+	err = svc.CreateBranch(dir, "to-delete")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Switch back to original branch so we can delete
-	branches, _ := svc.ListBranches(dir)
-	originalBranch := ""
-	for _, b := range branches {
-		if b.Name != "to-delete" {
-			originalBranch = b.Name
-			break
-		}
-	}
 	svc.CheckoutBranch(dir, originalBranch)
 
 	err = svc.DeleteBranch(dir, "to-delete")
@@ -663,7 +684,7 @@ func TestDeleteBranch(t *testing.T) {
 	}
 
 	// Verify branch is gone
-	branches, _ = svc.ListBranches(dir)
+	branches, _ := svc.ListBranches(dir)
 	for _, b := range branches {
 		if b.Name == "to-delete" {
 			t.Error("branch 'to-delete' should have been deleted")

@@ -394,8 +394,10 @@ func (s *Service) ListBranches(rootPath string) ([]BranchListEntry, error) {
 			continue
 		}
 		isCurrent := strings.HasPrefix(line, "* ")
-		// Remove leading "* " or "  "
-		line = strings.TrimLeft(line, "* ")
+		// Remove leading "* " or "  " (always exactly 2 characters from `git branch -v`)
+		if len(line) >= 2 {
+			line = line[2:]
+		}
 		line = strings.TrimSpace(line)
 
 		// Format: "branchname hash commit message..."

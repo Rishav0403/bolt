@@ -1,4 +1,4 @@
-import { createSignal, createMemo, Show, For, onMount, onCleanup } from 'solid-js';
+import { createSignal, createMemo, Show, For, createEffect } from 'solid-js';
 import { useEditor } from '../contexts/EditorContext';
 import { getWailsFs } from '../utils/wails';
 
@@ -123,9 +123,18 @@ export default function QuickFileOpen(props) {
     props.onClose?.();
   };
 
-  onMount(() => {
-    loadFiles();
-    inputRef?.focus();
+  // Reload file list whenever the modal opens or rootPath changes (not just on initial mount)
+  createEffect(() => {
+    const isOpen = props.isOpen?.();
+    const _rootPath = props.rootPath?.(); // track rootPath changes
+    if (isOpen) {
+      loadFiles();
+      // Reset query and selection when reopening
+      setQuery('');
+      setSelectedIndex(0);
+      // Focus the input after a microtask to ensure the DOM is rendered
+      queueMicrotask(() => inputRef?.focus());
+    }
   });
 
   return (

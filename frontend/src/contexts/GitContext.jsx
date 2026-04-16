@@ -26,8 +26,11 @@ export function GitProvider(props) {
 
   const git = getWailsGit();
 
+  /** Helper to read the current root path, reducing repetition across async functions. */
+  const getRoot = () => props.rootPath?.() || '';
+
   const refresh = async () => {
-    const root = props.rootPath?.() || '';
+    const root = getRoot();
     if (!git) {
       // Demo mode
       setStatus(DEMO_STATUS);
@@ -54,7 +57,7 @@ export function GitProvider(props) {
   };
 
   const stageFile = async (path) => {
-    const root = props.rootPath?.() || '';
+    const root = getRoot();
     if (!git) {
       // Demo mode: toggle staged status
       setStatus(prev => prev.map(f => f.path === path ? { ...f, staged: true } : f));
@@ -67,7 +70,7 @@ export function GitProvider(props) {
   };
 
   const unstageFile = async (path) => {
-    const root = props.rootPath?.() || '';
+    const root = getRoot();
     if (!git) {
       setStatus(prev => prev.map(f => f.path === path ? { ...f, staged: false } : f));
       return;
@@ -79,7 +82,7 @@ export function GitProvider(props) {
   };
 
   const stageAll = async () => {
-    const root = props.rootPath?.() || '';
+    const root = getRoot();
     if (!git) {
       setStatus(prev => prev.map(f => ({ ...f, staged: true })));
       return;
@@ -91,7 +94,7 @@ export function GitProvider(props) {
   };
 
   const unstageAll = async () => {
-    const root = props.rootPath?.() || '';
+    const root = getRoot();
     if (!git) {
       setStatus(prev => prev.map(f => ({ ...f, staged: false })));
       return;
@@ -103,7 +106,7 @@ export function GitProvider(props) {
   };
 
   const commit = async (message) => {
-    const root = props.rootPath?.() || '';
+    const root = getRoot();
     if (!git) {
       // Demo mode: remove staged files from status
       setStatus(prev => prev.filter(f => !f.staged));
@@ -117,7 +120,7 @@ export function GitProvider(props) {
   };
 
   const listBranches = async () => {
-    const root = props.rootPath?.() || '';
+    const root = getRoot();
     if (!git) {
       // Demo mode
       setBranches([
@@ -135,7 +138,7 @@ export function GitProvider(props) {
   };
 
   const checkoutBranch = async (branchName) => {
-    const root = props.rootPath?.() || '';
+    const root = getRoot();
     if (!git) {
       // Demo mode: toggle current branch
       setBranches(prev => prev.map(b => ({ ...b, isCurrent: b.name === branchName })));
@@ -151,7 +154,7 @@ export function GitProvider(props) {
   };
 
   const createBranch = async (branchName) => {
-    const root = props.rootPath?.() || '';
+    const root = getRoot();
     if (!git) {
       // Demo mode
       setBranches(prev => [
@@ -170,7 +173,7 @@ export function GitProvider(props) {
   };
 
   const deleteBranch = async (branchName) => {
-    const root = props.rootPath?.() || '';
+    const root = getRoot();
     if (!git) {
       setBranches(prev => prev.filter(b => b.name !== branchName));
       return;
@@ -183,7 +186,7 @@ export function GitProvider(props) {
   };
 
   const fetchLog = async (limit = 50) => {
-    const root = props.rootPath?.() || '';
+    const root = getRoot();
     if (!git) {
       // Demo mode
       setLog([

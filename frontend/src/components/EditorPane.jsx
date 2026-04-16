@@ -225,9 +225,7 @@ export default function EditorPane() {
     });
 
     // Split editor support
-    EditorPane.splitEditor = () => {
-      splitPane();
-    };
+    EditorPane.splitEditor = splitPane;
 
     // If there's already an active tab, show it
     const tab = activeTab();

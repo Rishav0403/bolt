@@ -10,6 +10,7 @@ export function EditorProvider(props) {
   const [cursorPosition, setCursorPosition] = createSignal({ line: 1, column: 1, selected: 0 });
 
   // Split pane management
+  let nextPaneId = 1; // monotonically increasing counter to avoid ID collisions after close+split
   const [panes, setPanes] = createSignal([
     { id: 'pane-0', tabIds: [], activeTabId: null }
   ]);
@@ -17,7 +18,7 @@ export function EditorProvider(props) {
 
   function splitPane() {
     setPanes(prev => {
-      const newId = 'pane-' + prev.length;
+      const newId = 'pane-' + nextPaneId++;
       return [...prev, { id: newId, tabIds: [], activeTabId: null }];
     });
     setActivePaneIndex(prev => prev + 1);
@@ -30,11 +31,7 @@ export function EditorProvider(props) {
       updated.splice(index, 1);
       return updated;
     });
-    setActivePaneIndex(prev => Math.min(prev, panes().length - 2));
-  }
-
-  function getActivePane() {
-    return panes()[activePaneIndex()] || panes()[0];
+    setActivePaneIndex(prev => Math.min(prev, panes().length - 1));
   }
 
   // Ref-based content store: avoids triggering reactivity on every keystroke.
@@ -136,7 +133,6 @@ export function EditorProvider(props) {
     setActivePaneIndex,
     splitPane,
     closePane,
-    getActivePane,
   };
 
   return (

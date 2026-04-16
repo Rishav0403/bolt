@@ -3,6 +3,7 @@ import { useGit } from '../contexts/GitContext';
 import { GitBranchIcon } from '../utils/icons';
 import DiffViewer from './DiffViewer';
 import { getWailsFs, getWailsGit } from '../utils/wails';
+import { getLanguageFromPath } from '../utils/fileIcons';
 
 /**
  * Get status letter and color for a file status.
@@ -70,16 +71,6 @@ export default function GitPanel() {
     }
   };
 
-  function getLangFromPath(filePath) {
-    const ext = (filePath || '').split('.').pop()?.toLowerCase();
-    const map = {
-      js: 'javascript', jsx: 'javascript', ts: 'typescript', tsx: 'typescript',
-      go: 'go', py: 'python', css: 'css', html: 'html', json: 'json',
-      md: 'markdown', yaml: 'yaml', yml: 'yaml', sh: 'shell',
-    };
-    return map[ext] || 'plaintext';
-  }
-
   const openDiff = async (file) => {
     const rootVal = typeof rootPath === 'function' ? rootPath() : (rootPath || '');
     const git = getWailsGit();
@@ -96,16 +87,25 @@ export default function GitPanel() {
       modifiedContent = '// Modified content\nconst x = 2;\nconst y = 3;\n';
     } else if (rootVal) {
       try {
-        // Get original from HEAD
-        originalContent = await git.GetFileAtRevision(rootVal, file.path, 'HEAD') || '';
+        // For renames, load the original side from the old path; otherwise use the current path
+        const originalPath = file.oldPath || file.path;
+        originalContent = await git.GetFileAtRevision(rootVal, originalPath, 'HEAD') || '';
 
         if (file.staged) {
           // Staged: get from index
           modifiedContent = await git.GetFileAtRevision(rootVal, file.path, ':0') || '';
+        } else if (file.status === 'deleted') {
+          // Deleted files have no working tree content
+          modifiedContent = '';
         } else {
           // Unstaged: read working tree file
           const fullPath = rootVal + '/' + file.path;
-          modifiedContent = fs ? (await fs.ReadFile(fullPath) || '') : '';
+          try {
+            modifiedContent = fs ? (await fs.ReadFile(fullPath) || '') : '';
+          } catch {
+            // File may not exist on disk (e.g., just deleted)
+            modifiedContent = '';
+          }
         }
       } catch (err) {
         console.error('Failed to load diff:', err);
@@ -118,10 +118,32 @@ export default function GitPanel() {
       modifiedContent,
       originalLabel,
       modifiedLabel,
-      language: getLangFromPath(file.path),
+      language: getLanguageFromPath(file.path),
       fileName: file.path,
     });
   };
+
+  /** Reusable file row for staged / unstaged file lists. */
+  function FileRow({ file, onAction, actionTitle, actionLabel }) {
+    const info = statusInfo(file.status);
+    const { name, dir } = splitPath(file.path);
+    return (
+      <div class="git-file-row" title={file.path} onClick={() => openDiff(file)} style={{ cursor: 'pointer' }}>
+        <span class="git-file-name">{name}</span>
+        <Show when={dir}>
+          <span class="git-file-dir">{dir}</span>
+        </Show>
+        <span class="git-file-status" style={{ color: info.color }}>{info.letter}</span>
+        <button
+          class="git-file-action"
+          onClick={(e) => { e.stopPropagation(); onAction(file.path); }}
+          title={actionTitle}
+        >
+          {actionLabel}
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div class="git-panel">
@@ -210,26 +232,7 @@ export default function GitPanel() {
           <Show when={stagedExpanded()}>
             <div class="git-file-list">
               <For each={stagedFiles()}>
-                {(file) => {
-                  const info = statusInfo(file.status);
-                  const { name, dir } = splitPath(file.path);
-                  return (
-                    <div class="git-file-row" title={file.path} onClick={() => openDiff(file)} style={{ cursor: 'pointer' }}>
-                      <span class="git-file-name">{name}</span>
-                      <Show when={dir}>
-                        <span class="git-file-dir">{dir}</span>
-                      </Show>
-                      <span class="git-file-status" style={{ color: info.color }}>{info.letter}</span>
-                      <button
-                        class="git-file-action"
-                        onClick={(e) => { e.stopPropagation(); unstageFile(file.path); }}
-                        title="Unstage"
-                      >
-                        −
-                      </button>
-                    </div>
-                  );
-                }}
+                {(file) => <FileRow file={file} onAction={unstageFile} actionTitle="Unstage" actionLabel="−" />}
               </For>
             </div>
           </Show>
@@ -257,26 +260,7 @@ export default function GitPanel() {
           <Show when={changesExpanded()}>
             <div class="git-file-list">
               <For each={unstagedFiles()}>
-                {(file) => {
-                  const info = statusInfo(file.status);
-                  const { name, dir } = splitPath(file.path);
-                  return (
-                    <div class="git-file-row" title={file.path} onClick={() => openDiff(file)} style={{ cursor: 'pointer' }}>
-                      <span class="git-file-name">{name}</span>
-                      <Show when={dir}>
-                        <span class="git-file-dir">{dir}</span>
-                      </Show>
-                      <span class="git-file-status" style={{ color: info.color }}>{info.letter}</span>
-                      <button
-                        class="git-file-action"
-                        onClick={(e) => { e.stopPropagation(); stageFile(file.path); }}
-                        title="Stage"
-                      >
-                        +
-                      </button>
-                    </div>
-                  );
-                }}
+                {(file) => <FileRow file={file} onAction={stageFile} actionTitle="Stage" actionLabel="+" />}
               </For>
             </div>
           </Show>
@@ -329,14 +313,8 @@ export default function GitPanel() {
                 <div
                   class={`git-branch-row ${b.isCurrent ? 'current' : ''}`}
                   onClick={() => {
-                    if (!b.isCurrent) {
-                      if (status().length > 0) {
-                        if (confirm('You have uncommitted changes. Switch branch anyway?')) {
-                          checkoutBranch(b.name);
-                        }
-                      } else {
-                        checkoutBranch(b.name);
-                      }
+                    if (!b.isCurrent && (status().length === 0 || confirm('You have uncommitted changes. Switch branch anyway?'))) {
+                      checkoutBranch(b.name);
                     }
                   }}
                 >

@@ -27,8 +27,6 @@ export default function DiffViewer(props) {
       scrollBeyondLastLine: false,
       padding: { top: 8 },
     });
-
-    updateModels();
   });
 
   function updateModels() {
